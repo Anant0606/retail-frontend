@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 const IconWifi = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400"><path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
@@ -24,11 +24,13 @@ const IconAlert = () => (
 export default function Dashboard() {
   const [storeData, setStoreData] = useState<any>(null);
   const [wsStatus, setWsStatus] = useState<"CONNECTING" | "CONNECTED" | "OFFLINE">("CONNECTING");
+  const socketRef = useRef<WebSocket | null>(null);
 
   const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://retail-backend-cdn8.onrender.com/ws/live-stream";
 
   useEffect(() => {
     const socket = new WebSocket(WS_URL);
+    socketRef.current = socket;
 
     socket.onopen = () => setWsStatus("CONNECTED");
     socket.onclose = () => setWsStatus("OFFLINE");
@@ -49,8 +51,17 @@ export default function Dashboard() {
       }
     };
 
-    return () => socket.close();
+    return () => {
+      socket.close();
+      socketRef.current = null;
+    };
   }, [WS_URL]);
+
+  const handleOpenCounter = () => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ action: "OPEN_NEXT_COUNTER" }));
+    }
+  };
 
   if (!storeData) {
     return (
@@ -153,9 +164,12 @@ export default function Dashboard() {
                 <div className="text-xs text-slate-400 mt-1 font-mono">Est. Wait: {c.wait_time}</div>
                 
                 {c.alert === "CRITICAL_CONGESTION" && (
-                  <div className="mt-3 text-[11px] font-bold text-red-400 bg-red-900/40 p-1.5 rounded border border-red-700 text-center animate-pulse">
+                  <button 
+                    onClick={handleOpenCounter}
+                    className="mt-3 w-full text-[11px] font-bold text-red-400 bg-red-900/40 hover:bg-red-800/60 active:scale-95 transition-all p-1.5 rounded border border-red-700 text-center animate-pulse cursor-pointer"
+                  >
                     OPEN NEXT COUNTER
-                  </div>
+                  </button>
                 )}
               </div>
             ))}
