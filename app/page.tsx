@@ -37,7 +37,7 @@ export default function Dashboard() {
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.type === "INITIAL_HYDRATION") {
+        if (message.type === "INITIAL_HYDRATION" || message.type === "STATE_UPDATE") {
           setStoreData(message.data);
         } else if (message.type === "QUEUE_UPDATE") {
           setStoreData((prev: any) => ({ ...prev, counters: message.data.payload.counters }));
