@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 const MANAGER_PHONE = "9472948984";
@@ -284,6 +284,7 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
+  // --- DIRECT FILE DOWNLOAD + NATIVE PRINT TO PDF ENGINE ---
   const saveInvoiceAsPDF = () => {
     const totalAmount = Object.entries(cart).reduce((acc, [id, qty]) => {
       const item = skus.find(s => s.id === id);
@@ -291,129 +292,188 @@ export default function ARISMasterOS() {
     }, 0);
 
     if (totalAmount === 0) {
-      notify("Cart is empty! Scan or add items to generate bill.");
+      notify("Cart is empty! Scan or add items first.");
       return;
     }
 
     playTone(950, "sine", 0.2);
     const invoiceId = `INV-${Math.floor(100000 + Math.random() * 900000)}`;
-    const invoiceDate = new Date().toLocaleString();
+    const invoiceDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
     const itemsRows = Object.entries(cart).map(([skuId, qty]) => {
       const item = skus.find(s => s.id === skuId);
       if (!item) return "";
       return `
         <tr>
-          <td style="padding: 10px; border-bottom: 1px solid #ddd;"><b>${item.name}</b><br><small style="color:#666">${item.id} • ${item.slot}</small></td>
-          <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${qty}</td>
-          <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;">₹${item.price.toFixed(2)}</td>
-          <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(item.price * qty).toFixed(2)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+            <strong style="font-size: 14px; color: #0f172a;">${item.name}</strong><br>
+            <span style="font-size: 11px; color: #64748b; font-family: monospace;">SKU: ${item.id} | Slot: ${item.slot}</span>
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${qty}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">₹${item.price.toFixed(2)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 900; color: #1e3a8a;">₹${(item.price * qty).toFixed(2)}</td>
         </tr>
       `;
     }).join("");
 
-    const printHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${invoiceId} - Tax Invoice</title>
-        <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #111; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
-          .title { font-size: 24px; font-weight: 900; color: #1e3a8a; margin: 0; }
-          .meta { font-size: 12px; color: #555; }
-          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-          th { background: #f1f5f9; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
-          .total-box { margin-top: 25px; text-align: right; }
-          .total-box h2 { font-size: 22px; color: #1e3a8a; margin: 5px 0; }
-          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #777; border-top: 1px solid #eee; padding-top: 15px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <h1 class="title">ARIS RETAIL INTELLIGENCE</h1>
-            <div class="meta">Automated Retail Intelligence System • Official Tax Invoice</div>
-          </div>
-          <div style="text-align: right;">
-            <div style="font-weight: bold; font-size: 16px;">${invoiceId}</div>
-            <div class="meta">${invoiceDate}</div>
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Item Description</th>
-              <th style="text-align: center;">Qty</th>
-              <th style="text-align: right;">Price</th>
-              <th style="text-align: right;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsRows}
-          </tbody>
-        </table>
-        <div class="total-box">
-          <div style="font-size: 14px; color: #444;">Subtotal: ₹${totalAmount.toFixed(2)}</div>
-          <div style="font-size: 14px; color: #16a34a; font-weight: bold;">Store Discount: -₹0.00</div>
-          <h2>Grand Total: ₹${totalAmount.toFixed(2)}</h2>
-        </div>
-        <div class="footer">
-          Thank you for shopping with us! • Generated via ARIS POS Terminal
-        </div>
-      </body>
-      </html>
-    `;
+    const fullInvoiceHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${invoiceId} - Official Retail Tax Invoice</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #0f172a; max-width: 800px; margin: auto; }
+    .header { border-bottom: 3px solid #2563eb; padding-bottom: 18px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .brand { font-size: 26px; font-weight: 900; color: #1e3a8a; }
+    .subhead { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .inv-details { text-align: right; }
+    .inv-id { font-size: 18px; font-weight: 800; color: #2563eb; font-family: monospace; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th { background-color: #f8fafc; color: #475569; padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+    .summary-card { margin-top: 30px; display: flex; justify-content: flex-end; }
+    .summary-box { width: 280px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; color: #475569; }
+    .total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; color: #1e3a8a; border-top: 2px solid #cbd5e1; padding-top: 10px; margin-top: 10px; }
+    .footer { margin-top: 60px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 18px; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; background: #dbeafe; color: #1e40af; font-size: 10px; font-weight: bold; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">ARIS RETAIL INTELLIGENCE</div>
+      <div class="subhead">Automated Retail Invigilation System • Point of Sale</div>
+      <span class="badge">PAID INVOICE</span>
+    </div>
+    <div class="inv-details">
+      <div class="inv-id">${invoiceId}</div>
+      <div class="subhead">Date: ${invoiceDate}</div>
+    </div>
+  </div>
 
-    const printWin = window.open("", "_blank", "width=850,height=950");
-    if (printWin) {
-      printWin.document.write(printHtml);
-      printWin.document.close();
-      printWin.focus();
+  <table>
+    <thead>
+      <tr>
+        <th>Product Description</th>
+        <th style="text-align: center;">Qty</th>
+        <th style="text-align: right;">Unit Price</th>
+        <th style="text-align: right;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRows}
+    </tbody>
+  </table>
+
+  <div class="summary-card">
+    <div class="summary-box">
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <span>₹${totalAmount.toFixed(2)}</span>
+      </div>
+      <div class="summary-row">
+        <span>Store Promo / Discount</span>
+        <span style="color: #16a34a; font-weight: bold;">-₹0.00</span>
+      </div>
+      <div class="total-row">
+        <span>Grand Total</span>
+        <span>₹${totalAmount.toFixed(2)}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Verified by ARIS POS Engine • Thank you for shopping with us!
+  </div>
+</body>
+</html>`;
+
+    // 1. Instant Direct File Save
+    try {
+      const blob = new Blob([fullInvoiceHtml], { type: "text/html" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${invoiceId}-tax-invoice.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    } catch {}
+
+    // 2. Hidden Iframe Native Print / Save Dialog
+    const hiddenIframe = document.createElement("iframe");
+    hiddenIframe.style.position = "fixed";
+    hiddenIframe.style.bottom = "0";
+    hiddenIframe.style.right = "0";
+    hiddenIframe.style.width = "0";
+    hiddenIframe.style.height = "0";
+    hiddenIframe.style.border = "0";
+    document.body.appendChild(hiddenIframe);
+
+    const doc = hiddenIframe.contentWindow?.document || hiddenIframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(fullInvoiceHtml);
+      doc.close();
       setTimeout(() => {
-        printWin.print();
-        printWin.close();
-        setCart({});
-        notify("✅ Invoice saved as PDF!");
-      }, 350);
+        hiddenIframe.contentWindow?.focus();
+        hiddenIframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(hiddenIframe);
+          setCart({});
+          notify("✅ Invoice saved to disk & printed!");
+        }, 1000);
+      }, 300);
     }
   };
 
   const savePsychologicalReportAsPDF = () => {
     playTone(880, "sine", 0.15);
-    const reportDate = new Date().toLocaleString();
-    const reportHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>ARIS - Customer Psychological Dwell Audit</title>
-        <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #111; }
-          .header { border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 20px; }
-          .box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-          .tag { display: inline-block; padding: 3px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border-radius: 4px; font-weight: bold; }
-          h2 { font-size: 26px; color: #1e1b4b; margin: 8px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1 style="margin: 0; color: #4c1d95; font-size: 24px;">ARIS CUSTOMER PSYCHOLOGICAL REPORT</h1>
-          <p style="margin: 4px 0; color: #64748b; font-size: 12px;">Computer Vision Heatwave & Shelf Dwell Analytics • Generated: ${reportDate}</p>
-        </div>
-        <div class="box">
-          <span class="tag">Dwell Duration</span>
-          <h2>${insights.dwell_seconds} Seconds Active Stop</h2>
-          <p><b>Target Shelf Location:</b> ${insights.zone}</p>
-          <p><b>Target Product / Offer:</b> ${insights.active_sku}</p>
-          <p><b>Inferred Behavior Intent:</b> ${insights.intent_state}</p>
-        </div>
-        <div class="box" style="background: #fdf4ff; border-color: #f0abfc;">
-          <span class="tag" style="background: #fae8ff; color: #a21caf;">AI Behavioral Diagnosis</span>
-          <p style="font-size: 14px; margin-top: 10px; line-height: 1.5;">"${insights.psychology_insight}"</p>
-        </div>
-      </body>
-      </html>
-    `;
+    const reportDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+    const reportHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>ARIS - Customer Psychological Dwell Audit</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #111; max-width: 800px; margin: auto; }
+    .header { border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 20px; }
+    .box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+    .tag { display: inline-block; padding: 3px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border-radius: 4px; font-weight: bold; }
+    h2 { font-size: 26px; color: #1e1b4b; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 style="margin: 0; color: #4c1d95; font-size: 24px;">ARIS CUSTOMER PSYCHOLOGICAL REPORT</h1>
+    <p style="margin: 4px 0; color: #64748b; font-size: 12px;">Computer Vision Heatwave & Shelf Dwell Analytics • Generated: ${reportDate}</p>
+  </div>
+  <div class="box">
+    <span class="tag">Dwell Duration</span>
+    <h2>${insights.dwell_seconds} Seconds Active Stop</h2>
+    <p><b>Target Shelf Location:</b> ${insights.zone}</p>
+    <p><b>Target Product / Offer:</b> ${insights.active_sku}</p>
+    <p><b>Inferred Behavior Intent:</b> ${insights.intent_state}</p>
+  </div>
+  <div class="box" style="background: #fdf4ff; border-color: #f0abfc;">
+    <span class="tag" style="background: #fae8ff; color: #a21caf;">AI Behavioral Diagnosis</span>
+    <p style="font-size: 14px; margin-top: 10px; line-height: 1.5;">"${insights.psychology_insight}"</p>
+  </div>
+</body>
+</html>`;
+
+    try {
+      const blob = new Blob([reportHtml], { type: "text/html" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `ARIS-Psychological-Audit.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    } catch {}
 
     const printWin = window.open("", "_blank", "width=850,height=950");
     if (printWin) {
@@ -437,19 +497,15 @@ export default function ARISMasterOS() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 1. DIRECT-TO-BODY PORTAL FOR HAMBURGER DRAWER (ZERO BLEED / NO OVERLAP) */}
-      {/* ========================================================================= */}
+      {/* ================= 1. DIRECT PORTAL HAMBURGER DRAWER (ZERO BLEED / ZERO OVERLAP) ================= */}
       {mounted && menuOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex">
-          {/* Pitch black backdrop */}
           <div 
             onClick={() => setMenuOpen(false)} 
-            className="fixed inset-0 bg-black/90 cursor-pointer"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.9)" }}
+            className="fixed inset-0 bg-black/95 cursor-pointer"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.95)" }}
           />
 
-          {/* 100% Solid Hex Opaque Drawer */}
           <div 
             style={{ backgroundColor: "#0f172a", opacity: 1, zIndex: 100000 }}
             className="relative top-16 left-4 w-80 h-auto border-2 border-indigo-500/80 rounded-2xl p-5 shadow-[0_25px_60px_rgba(0,0,0,1)] space-y-3"
@@ -514,15 +570,13 @@ export default function ARISMasterOS() {
         document.body
       )}
 
-      {/* ========================================================================= */}
-      {/* 2. DIRECT-TO-BODY PORTAL FOR BARCODE MODAL (PREVENTS SQUEEZE & CLASH)    */}
-      {/* ========================================================================= */}
+      {/* ================= 2. DIRECT PORTAL BARCODE SCANNER (NO COLLAPSE / NO SQUEEZE) ================= */}
       {mounted && scannerOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div 
             onClick={() => setScannerOpen(false)} 
-            className="fixed inset-0 bg-black/90 cursor-pointer"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.9)" }}
+            className="fixed inset-0 bg-black/95 cursor-pointer"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.95)" }}
           />
 
           <div 
@@ -544,7 +598,7 @@ export default function ARISMasterOS() {
               </button>
             </div>
 
-            {/* Guaranteed Viewfinder: Strictly Non-Collapsible Min-Height */}
+            {/* Viewfinder: Explicit Min-Height 260px */}
             <div className="w-full min-h-[260px] h-[260px] bg-black rounded-2xl overflow-hidden relative border-2 border-indigo-500/60 flex items-center justify-center flex-shrink-0 shadow-inner">
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                 <div className="w-56 h-32 border-2 border-dashed border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(52,211,153,0.6)]">
@@ -754,7 +808,7 @@ export default function ARISMasterOS() {
                   {lowStockItems.slice(0, 5).map(item => {
                     const ratio = Math.round((item.stock / item.capacity) * 100);
                     return (
-                      <div key={item.id} className="p-3 bg-slate-900 border border-rose-900/60 rounded-xl flex items-center justify-between text-xs hover:border-rose-600 transition">
+                      <div key={item.id} className="p-3 bg-slate-950 border border-rose-900/60 rounded-xl flex items-center justify-between text-xs hover:border-rose-600 transition">
                         <div>
                           <span className="font-bold text-white block">{item.name}</span>
                           <span className="text-[10px] text-slate-400 font-mono">
