@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
-// --- Zero-Dependency Minimal SVG Icons ---
+// --- Minimal Zero-Dependency SVG Icons ---
 const IconStore = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
@@ -55,6 +55,16 @@ const IconShield = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
+const IconBarcode = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 5v14" />
+    <path d="M8 5v14" />
+    <path d="M12 5v14" />
+    <path d="M17 5v14" />
+    <path d="M21 5v14" />
+  </svg>
+);
+
 const IconVolume = ({ active }: { active: boolean }) => (
   active ? (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -83,58 +93,58 @@ const IconSparkles = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-// --- 50 Realistic Retail SKUs Catalog ---
+// --- 50 Realistic Retail SKUs With Actual Barcodes ---
 const INITIAL_50_SKUS = [
-  { id: "SKU-3059", name: "boAt Wave Smartwatch (Classic Blue)", category: "Electronics", capacity: 20, price: 1499 },
-  { id: "SKU-5962", name: "Crompton LED Bulb 5W Cool White", category: "Lighting", capacity: 35, price: 1000 },
-  { id: "SKU-1473", name: "Fingerprint Classics: Autobiography", category: "Books", capacity: 25, price: 149 },
-  { id: "SKU-1837", name: "Lay's Magic Masala Potato Chips 50g", category: "Snacks", capacity: 60, price: 20 },
-  { id: "SKU-1005", name: "Amul Taaza Homogenised Milk 1L", category: "Groceries", capacity: 40, price: 74 },
-  { id: "SKU-1006", name: "Tata Salt Vacuum Evaporated 1kg", category: "Groceries", capacity: 50, price: 28 },
-  { id: "SKU-1007", name: "Fortune Sunlite Refined Oil 1L", category: "Groceries", capacity: 30, price: 145 },
-  { id: "SKU-1008", name: "Aashirvaad Shudh Chakki Atta 5kg", category: "Groceries", capacity: 25, price: 265 },
-  { id: "SKU-1009", name: "Nestle Maggi 2-Minute Noodles 420g", category: "Groceries", capacity: 45, price: 96 },
-  { id: "SKU-1010", name: "Parle-G Gold Biscuits 1kg", category: "Snacks", capacity: 50, price: 120 },
-  { id: "SKU-1011", name: "Britannia Good Day Butter 200g", category: "Snacks", capacity: 40, price: 45 },
-  { id: "SKU-1012", name: "Cadbury Dairy Milk Silk 150g", category: "Snacks", capacity: 35, price: 175 },
-  { id: "SKU-1013", name: "Haldiram's Bhujia Sev 400g", category: "Snacks", capacity: 30, price: 130 },
-  { id: "SKU-1014", name: "Kurkure Masala Munch 85g", category: "Snacks", capacity: 50, price: 20 },
-  { id: "SKU-1015", name: "Coca-Cola Original 750ml", category: "Beverages", capacity: 40, price: 40 },
-  { id: "SKU-1016", name: "Pepsi Cold Drink Can 300ml", category: "Beverages", capacity: 35, price: 35 },
-  { id: "SKU-1017", name: "Red Bull Energy Drink 250ml", category: "Beverages", capacity: 30, price: 125 },
-  { id: "SKU-1018", name: "Tropicana 100% Orange Juice 1L", category: "Beverages", capacity: 25, price: 140 },
-  { id: "SKU-1019", name: "Nescafe Classic Instant Coffee 50g", category: "Beverages", capacity: 30, price: 190 },
-  { id: "SKU-1020", name: "Tata Tea Premium 500g", category: "Beverages", capacity: 35, price: 260 },
-  { id: "SKU-1021", name: "Colgate MaxFresh Toothpaste 150g", category: "Personal Care", capacity: 40, price: 110 },
-  { id: "SKU-1022", name: "Dettol Original Bath Soap (Buy 3 Get 1)", category: "Personal Care", capacity: 30, price: 180 },
-  { id: "SKU-1023", name: "Head & Shoulders Shampoo 340ml", category: "Personal Care", capacity: 25, price: 299 },
-  { id: "SKU-1024", name: "Nivea Soft Moisturizing Cream 100ml", category: "Personal Care", capacity: 30, price: 160 },
-  { id: "SKU-1025", name: "Gillette Mach 3 Razor", category: "Personal Care", capacity: 20, price: 350 },
-  { id: "SKU-1026", name: "Surf Excel Easy Wash Detergent 1kg", category: "Household", capacity: 35, price: 145 },
-  { id: "SKU-1027", name: "Vim Dishwash Gel Lemon 500ml", category: "Household", capacity: 40, price: 115 },
-  { id: "SKU-1028", name: "Harpic Power Plus Toilet Cleaner 1L", category: "Household", capacity: 30, price: 215 },
-  { id: "SKU-1029", name: "Lizol Disinfectant Surface Cleaner 1L", category: "Household", capacity: 25, price: 220 },
-  { id: "SKU-1030", name: "Odonil Room Spray Jasmine 220ml", category: "Household", capacity: 30, price: 155 },
-  { id: "SKU-1031", name: "Philips 9W LED Eco Bulb", category: "Lighting", capacity: 40, price: 120 },
-  { id: "SKU-1032", name: "Syska Smart Wi-Fi 7W Bulb", category: "Lighting", capacity: 15, price: 499 },
-  { id: "SKU-1033", name: "Wipro High-Beam Emergency Light", category: "Lighting", capacity: 15, price: 650 },
-  { id: "SKU-1034", name: "Havells Extension Cord 4-Way 2m", category: "Electronics", capacity: 20, price: 380 },
-  { id: "SKU-1035", name: "boAt BassHeads 100 Wired Earphones", category: "Electronics", capacity: 25, price: 399 },
-  { id: "SKU-1036", name: "Portronics 20W Fast Charger Adapter", category: "Electronics", capacity: 25, price: 499 },
-  { id: "SKU-1037", name: "SanDisk 64GB Ultra Flash Drive", category: "Electronics", capacity: 30, price: 449 },
-  { id: "SKU-1038", name: "Duracell Ultra AA Alkaline Pack of 4", category: "Electronics", capacity: 50, price: 170 },
-  { id: "SKU-1039", name: "Classmate Notebook Spiral 300 Pgs", category: "Stationery", capacity: 35, price: 130 },
-  { id: "SKU-1040", name: "Parker Vector Rollerball Pen", category: "Stationery", capacity: 20, price: 290 },
-  { id: "SKU-1041", name: "Doms Neon Graphite Pencils Pack of 10", category: "Stationery", capacity: 40, price: 60 },
-  { id: "SKU-1042", name: "Fevicol MR Adhesive Squeeze 100g", category: "Stationery", capacity: 45, price: 45 },
-  { id: "SKU-1043", name: "Cello Maxriter Ball Pen Pack of 5", category: "Stationery", capacity: 50, price: 50 },
-  { id: "SKU-1044", name: "Atomic Habits - James Clear", category: "Books", capacity: 15, price: 499 },
-  { id: "SKU-1045", name: "The Psychology of Money - M. Housel", category: "Books", capacity: 15, price: 350 },
-  { id: "SKU-1046", name: "Ikigai: Japanese Secret to Long Life", category: "Books", capacity: 18, price: 399 },
-  { id: "SKU-1047", name: "Rich Dad Poor Dad - R. Kiyosaki", category: "Books", capacity: 20, price: 299 },
-  { id: "SKU-1048", name: "Casio FX-991CW Scientific Calculator", category: "Electronics", capacity: 10, price: 1495 },
-  { id: "SKU-1049", name: "Milton Thermosteel 1000ml Flask", category: "Household", capacity: 15, price: 890 },
-  { id: "SKU-1050", name: "Pigeon Handy Chopper with 3 Blades", category: "Household", capacity: 25, price: 249 },
+  { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch (Classic Blue)", category: "Electronics", capacity: 20, price: 1499 },
+  { id: "SKU-5962", barcode: "8902653015962", name: "Crompton LED Bulb 5W Cool White", category: "Lighting", capacity: 35, price: 1000 },
+  { id: "SKU-1473", barcode: "9789354401473", name: "Fingerprint Classics: Autobiography", category: "Books", capacity: 25, price: 149 },
+  { id: "SKU-1837", barcode: "8901491101837", name: "Lay's Magic Masala Potato Chips 50g", category: "Snacks", capacity: 60, price: 20 },
+  { id: "SKU-1005", barcode: "8901262010051", name: "Amul Taaza Homogenised Milk 1L", category: "Groceries", capacity: 40, price: 74 },
+  { id: "SKU-1006", barcode: "8901030010062", name: "Tata Salt Vacuum Evaporated 1kg", category: "Groceries", capacity: 50, price: 28 },
+  { id: "SKU-1007", barcode: "8906007280073", name: "Fortune Sunlite Refined Oil 1L", category: "Groceries", capacity: 30, price: 145 },
+  { id: "SKU-1008", barcode: "8901725181084", name: "Aashirvaad Shudh Chakki Atta 5kg", category: "Groceries", capacity: 25, price: 265 },
+  { id: "SKU-1009", barcode: "8901058852095", name: "Nestle Maggi 2-Minute Noodles 420g", category: "Groceries", capacity: 45, price: 96 },
+  { id: "SKU-1010", barcode: "8901719101108", name: "Parle-G Gold Biscuits 1kg", category: "Snacks", capacity: 50, price: 120 },
+  { id: "SKU-1011", barcode: "8901063010111", name: "Britannia Good Day Butter 200g", category: "Snacks", capacity: 40, price: 45 },
+  { id: "SKU-1012", barcode: "7622201431122", name: "Cadbury Dairy Milk Silk 150g", category: "Snacks", capacity: 35, price: 175 },
+  { id: "SKU-1013", barcode: "8904063210135", name: "Haldiram's Bhujia Sev 400g", category: "Snacks", capacity: 30, price: 130 },
+  { id: "SKU-1014", barcode: "8901491501149", name: "Kurkure Masala Munch 85g", category: "Snacks", capacity: 50, price: 20 },
+  { id: "SKU-1015", barcode: "5449000000996", name: "Coca-Cola Original 750ml", category: "Beverages", capacity: 40, price: 40 },
+  { id: "SKU-1016", barcode: "8902080000163", name: "Pepsi Cold Drink Can 300ml", category: "Beverages", capacity: 35, price: 35 },
+  { id: "SKU-1017", barcode: "9002490100170", name: "Red Bull Energy Drink 250ml", category: "Beverages", capacity: 30, price: 125 },
+  { id: "SKU-1018", barcode: "8901491100182", name: "Tropicana 100% Orange Juice 1L", category: "Beverages", capacity: 25, price: 140 },
+  { id: "SKU-1019", barcode: "8901058860199", name: "Nescafe Classic Instant Coffee 50g", category: "Beverages", capacity: 30, price: 190 },
+  { id: "SKU-1020", barcode: "8901030383204", name: "Tata Tea Premium 500g", category: "Beverages", capacity: 35, price: 260 },
+  { id: "SKU-1021", barcode: "8901314010213", name: "Colgate MaxFresh Toothpaste 150g", category: "Personal Care", capacity: 40, price: 110 },
+  { id: "SKU-1022", barcode: "8901396144224", name: "Dettol Original Bath Soap (3+1)", category: "Personal Care", capacity: 30, price: 180 },
+  { id: "SKU-1023", barcode: "4902430734233", name: "Head & Shoulders Shampoo 340ml", category: "Personal Care", capacity: 25, price: 299 },
+  { id: "SKU-1024", barcode: "4005808801244", name: "Nivea Soft Moisturizing Cream 100ml", category: "Personal Care", capacity: 30, price: 160 },
+  { id: "SKU-1025", barcode: "4902430604253", name: "Gillette Mach 3 Razor", category: "Personal Care", capacity: 20, price: 350 },
+  { id: "SKU-1026", barcode: "8901030707269", name: "Surf Excel Easy Wash Detergent 1kg", category: "Household", capacity: 35, price: 145 },
+  { id: "SKU-1027", barcode: "8901030045279", name: "Vim Dishwash Gel Lemon 500ml", category: "Household", capacity: 40, price: 115 },
+  { id: "SKU-1028", barcode: "8901396328280", name: "Harpic Power Plus Toilet Cleaner 1L", category: "Household", capacity: 30, price: 215 },
+  { id: "SKU-1029", barcode: "8901396349292", name: "Lizol Surface Cleaner Citrus 1L", category: "Household", capacity: 25, price: 220 },
+  { id: "SKU-1030", barcode: "8901207010304", name: "Odonil Room Spray Jasmine 220ml", category: "Household", capacity: 30, price: 155 },
+  { id: "SKU-1031", barcode: "8718696578315", name: "Philips 9W LED Eco Bulb", category: "Lighting", capacity: 40, price: 120 },
+  { id: "SKU-1032", barcode: "8904239820323", name: "Syska Smart Wi-Fi 7W Bulb", category: "Lighting", capacity: 15, price: 499 },
+  { id: "SKU-1033", barcode: "8901030612334", name: "Wipro High-Beam Emergency Light", category: "Lighting", capacity: 15, price: 650 },
+  { id: "SKU-1034", barcode: "8901762014349", name: "Havells Extension Cord 4-Way 2m", category: "Electronics", capacity: 20, price: 380 },
+  { id: "SKU-1035", barcode: "8904130835358", name: "boAt BassHeads 100 Wired Earphones", category: "Electronics", capacity: 25, price: 399 },
+  { id: "SKU-1036", barcode: "8904230810361", name: "Portronics 20W Fast Charger Adapter", category: "Electronics", capacity: 25, price: 499 },
+  { id: "SKU-1037", barcode: "0619659102377", name: "SanDisk 64GB Ultra Flash Drive", category: "Electronics", capacity: 30, price: 449 },
+  { id: "SKU-1038", barcode: "5000394018389", name: "Duracell Ultra AA Alkaline (Pack 4)", category: "Electronics", capacity: 50, price: 170 },
+  { id: "SKU-1039", barcode: "8901725064394", name: "Classmate Notebook Spiral 300 Pgs", category: "Stationery", capacity: 35, price: 130 },
+  { id: "SKU-1040", barcode: "8901198000407", name: "Parker Vector Rollerball Pen", category: "Stationery", capacity: 20, price: 290 },
+  { id: "SKU-1041", barcode: "8901425026410", name: "Doms Neon Graphite Pencils Pack 10", category: "Stationery", capacity: 40, price: 60 },
+  { id: "SKU-1042", barcode: "8901860010425", name: "Fevicol MR Adhesive Squeeze 100g", category: "Stationery", capacity: 45, price: 45 },
+  { id: "SKU-1043", barcode: "8901198104433", name: "Cello Maxriter Ball Pen Pack 5", category: "Stationery", capacity: 50, price: 50 },
+  { id: "SKU-1044", barcode: "9781847941831", name: "Atomic Habits - James Clear", category: "Books", capacity: 15, price: 499 },
+  { id: "SKU-1045", barcode: "9789390166268", name: "The Psychology of Money - M. Housel", category: "Books", capacity: 15, price: 350 },
+  { id: "SKU-1046", barcode: "9781786330895", name: "Ikigai: Japanese Secret to Long Life", category: "Books", capacity: 18, price: 399 },
+  { id: "SKU-1047", barcode: "9781612680194", name: "Rich Dad Poor Dad - R. Kiyosaki", category: "Books", capacity: 20, price: 299 },
+  { id: "SKU-1048", barcode: "4549526611484", name: "Casio FX-991CW Scientific Calculator", category: "Electronics", capacity: 10, price: 1495 },
+  { id: "SKU-1049", barcode: "8901030049499", name: "Milton Thermosteel 1000ml Flask", category: "Household", capacity: 15, price: 890 },
+  { id: "SKU-1050", barcode: "8906023281507", name: "Pigeon Handy Chopper 3 Blades", category: "Household", capacity: 25, price: 249 },
 ];
 
 export default function RetailStudioDashboard() {
@@ -143,31 +153,35 @@ export default function RetailStudioDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
+  // Barcode Scanner Inputs
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [scanMode, setScanMode] = useState<"PICK" | "RETURN">("PICK");
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+
   // Counter Management State
   const [counterState, setCounterState] = useState({
-    c1Queue: 5,
+    c1Queue: 4,
     c2Queue: 4,
     c3Active: false,
     rushAlert: true,
   });
 
-  // Footfall Trackers
-  const [footfall, setFootfall] = useState({ in: 48, out: 29 });
+  // Footfall
+  const [footfall, setFootfall] = useState({ in: 52, out: 31 });
 
-  // 50 SKU Dynamic State (Tracking: invigilated in cart, sold, restocked)
-  const [productStates, setProductStates] = useState<Record<string, { inCart: number; sold: number; restocked: number }>>({
-    "SKU-3059": { inCart: 2, sold: 10, restocked: 0 },
-    "SKU-5962": { inCart: 3, sold: 20, restocked: 0 },
-    "SKU-1473": { inCart: 1, sold: 12, restocked: 0 },
-    "SKU-1837": { inCart: 4, sold: 45, restocked: 0 },
-    "SKU-1005": { inCart: 2, sold: 28, restocked: 0 },
-    "SKU-1015": { inCart: 1, sold: 25, restocked: 0 },
+  // 50 SKU Dynamic State (inCart: Invigilated, sold: POS cleared)
+  const [productStates, setProductStates] = useState<Record<string, { inCart: number; sold: number }>>({
+    "SKU-3059": { inCart: 3, sold: 9 },
+    "SKU-5962": { inCart: 2, sold: 18 },
+    "SKU-1473": { inCart: 1, sold: 10 },
+    "SKU-1837": { inCart: 5, sold: 42 },
+    "SKU-1005": { inCart: 2, sold: 26 },
   });
 
   const [recentEvents, setRecentEvents] = useState([
-    { id: 1, text: "Counter 1 & 2 rush threshold crossed (9 people)", time: "Just now", type: "alert" },
-    { id: 2, text: "boAt Wave picked -> Status: In Cart (Not Sold)", time: "15s ago", type: "pick" },
-    { id: 3, text: "POS Checkout cleared 6 items at Counter 1", time: "1m ago", type: "sold" },
+    { id: 1, text: "Scanner input active for 50 EAN barcodes", time: "Just now", type: "system" },
+    { id: 2, text: "Counter 1 & 2 rush alert active (8 in queue)", time: "1m ago", type: "alert" },
+    { id: 3, text: "boAt Wave picked (Barcode: 8905650133059)", time: "2m ago", type: "pick" },
   ]);
 
   useEffect(() => {
@@ -175,7 +189,7 @@ export default function RetailStudioDashboard() {
   }, []);
 
   // Web Audio Alert Synthesizer
-  const triggerAudio = (type: "pick" | "alert" | "rush" | "checkout") => {
+  const triggerAudio = (type: "pick" | "return" | "alert" | "rush" | "checkout") => {
     if (typeof window === "undefined" || !audioEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -191,8 +205,12 @@ export default function RetailStudioDashboard() {
         gain.gain.setValueAtTime(0.12, ctx.currentTime);
         osc.start();
         osc.stop(ctx.currentTime + 0.08);
+      } else if (type === "return") {
+        osc.frequency.setValueAtTime(420, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
       } else if (type === "rush" || type === "alert") {
-        // Double Emergency Beep for Counter Rush
         osc.frequency.setValueAtTime(440, ctx.currentTime);
         osc.frequency.setValueAtTime(660, ctx.currentTime + 0.12);
         gain.gain.setValueAtTime(0.2, ctx.currentTime);
@@ -210,7 +228,7 @@ export default function RetailStudioDashboard() {
     }
   };
 
-  // Evaluate Rush and Counter Status
+  // Rush Queue Evaluator
   const evaluateCounterRush = (c1: number, c2: number, c3Active: boolean) => {
     const isRush = (c1 >= 4 && c2 >= 4) && !c3Active;
     if (isRush && !counterState.rushAlert) {
@@ -219,24 +237,22 @@ export default function RetailStudioDashboard() {
     return isRush;
   };
 
-  // Open / Close Counter 3
   const toggleCounter3 = () => {
     const nextState = !counterState.c3Active;
     let newC1 = counterState.c1Queue;
     let newC2 = counterState.c2Queue;
 
-    // Distribute queue load if counter 3 opens
     if (nextState) {
       newC1 = Math.max(2, counterState.c1Queue - 2);
       newC2 = Math.max(2, counterState.c2Queue - 2);
       triggerAudio("checkout");
       setRecentEvents(prev => [
-        { id: Date.now(), text: "Counter 3 DEPLOYED! Queue redistributed smoothly", time: "Just now", type: "sold" },
+        { id: Date.now(), text: "Counter 3 DEPLOYED: Queue load alleviated", time: "Just now", type: "checkout" },
         ...prev.slice(0, 3)
       ]);
     } else {
       setRecentEvents(prev => [
-        { id: Date.now(), text: "Counter 3 closed (Normal traffic restored)", time: "Just now", type: "alert" },
+        { id: Date.now(), text: "Counter 3 deactivated (Normal operations)", time: "Just now", type: "alert" },
         ...prev.slice(0, 3)
       ]);
     }
@@ -249,7 +265,6 @@ export default function RetailStudioDashboard() {
     });
   };
 
-  // Simulate Add/Remove in Queue
   const adjustQueue = (counter: "c1" | "c2", delta: number) => {
     const nextC1 = counter === "c1" ? Math.max(0, counterState.c1Queue + delta) : counterState.c1Queue;
     const nextC2 = counter === "c2" ? Math.max(0, counterState.c2Queue + delta) : counterState.c2Queue;
@@ -263,24 +278,64 @@ export default function RetailStudioDashboard() {
     }));
   };
 
-  // Shelf Pick Event: In Cart (Not Sold)
-  const handlePickProduct = (id: string, name: string) => {
-    triggerAudio("pick");
+  // --- Dynamic Shelf Pick (+1) & Remove/Return (-1) Logic ---
+  const handleProductAction = (id: string, name: string, barcode: string, action: "PICK" | "RETURN") => {
     setProductStates(prev => {
-      const current = prev[id] || { inCart: 0, sold: 0, restocked: 0 };
-      return {
-        ...prev,
-        [id]: { ...current, inCart: current.inCart + 1 }
-      };
+      const current = prev[id] || { inCart: 0, sold: 0 };
+      const skuMeta = INITIAL_50_SKUS.find(s => s.id === id);
+      const remainingStock = Math.max(0, (skuMeta?.capacity || 20) - (current.inCart + current.sold));
+
+      if (action === "PICK") {
+        if (remainingStock <= 0) return prev;
+        triggerAudio("pick");
+        return {
+          ...prev,
+          [id]: { ...current, inCart: current.inCart + 1 }
+        };
+      } else {
+        if (current.inCart <= 0) return prev;
+        triggerAudio("return");
+        return {
+          ...prev,
+          [id]: { ...current, inCart: current.inCart - 1 }
+        };
+      }
     });
 
+    const eventDesc = action === "PICK" 
+      ? `[PICK] ${name} -> In Cart (Not Sold) | Barcode: ${barcode}`
+      : `[RETURN] ${name} -> Returned to Shelf Slot | Barcode: ${barcode}`;
+
     setRecentEvents(prev => [
-      { id: Date.now(), text: `Camera Invigilated: [${name}] picked to Cart`, time: "Just now", type: "pick" },
+      { id: Date.now(), text: eventDesc, time: "Just now", type: action === "PICK" ? "pick" : "return" },
       ...prev.slice(0, 3)
     ]);
   };
 
-  // POS Checkout Event: Move from InCart -> Sold
+  // Barcode Direct Scan Handler (Keyboard / DroidCam Vision trigger)
+  const handleBarcodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = barcodeInput.trim();
+    if (!raw) return;
+
+    // Match either by 13-digit Barcode or SKU ID
+    const matched = INITIAL_50_SKUS.find(
+      s => s.barcode === raw || s.id.toLowerCase() === raw.toLowerCase() || s.barcode.endsWith(raw)
+    );
+
+    if (matched) {
+      handleProductAction(matched.id, matched.name, matched.barcode, scanMode);
+      setBarcodeInput("");
+    } else {
+      triggerAudio("alert");
+      setRecentEvents(prev => [
+        { id: Date.now(), text: `Barcode Not Found: ${raw}`, time: "Just now", type: "alert" },
+        ...prev.slice(0, 3)
+      ]);
+    }
+  };
+
+  // POS Checkout Clearance
   const handleCheckoutAll = () => {
     let convertedUnits = 0;
     let convertedValue = 0;
@@ -307,22 +362,19 @@ export default function RetailStudioDashboard() {
       triggerAudio("checkout");
       setFootfall(prev => ({ ...prev, out: prev.out + Math.ceil(convertedUnits / 2) }));
       setRecentEvents(prev => [
-        { id: Date.now(), text: `Cleared ${convertedUnits} items at Checkout (Rs.${convertedValue.toLocaleString("en-IN")})`, time: "Just now", type: "sold" },
+        { id: Date.now(), text: `POS Cleared ${convertedUnits} items (Rs.${convertedValue.toLocaleString("en-IN")})`, time: "Just now", type: "checkout" },
         ...prev.slice(0, 3)
       ]);
     }
   };
 
-  // Multi-Factor Computation per SKU
-  const catalogWithLiveCalculations = useMemo(() => {
+  // Dynamic Multi-Criteria Computations
+  const catalogWithCalculations = useMemo(() => {
     return INITIAL_50_SKUS.map(sku => {
-      const live = productStates[sku.id] || { inCart: 0, sold: 0, restocked: 0 };
-      // Strict multi-criteria formula:
-      // Stock Remaining = Capacity - (InCart + Sold) + Restocked
-      const totalMovedFromShelf = live.inCart + live.sold;
-      const currentStock = Math.max(0, sku.capacity - totalMovedFromShelf + live.restocked);
+      const live = productStates[sku.id] || { inCart: 0, sold: 0 };
+      const currentStock = Math.max(0, sku.capacity - (live.inCart + live.sold));
       const emptySlots = sku.capacity - currentStock;
-      const clearanceRate = Math.min(100, Math.round((totalMovedFromShelf / sku.capacity) * 100));
+      const clearanceRate = Math.min(100, Math.round(((live.inCart + live.sold) / sku.capacity) * 100));
 
       return {
         ...sku,
@@ -335,19 +387,21 @@ export default function RetailStudioDashboard() {
     });
   }, [productStates]);
 
-  // Global KPIs derived dynamically
-  const totalCapacity = catalogWithLiveCalculations.reduce((acc, c) => acc + c.capacity, 0);
-  const totalRemainingOnShelf = catalogWithLiveCalculations.reduce((acc, c) => acc + c.currentStock, 0);
-  const totalInCartInvigilated = catalogWithLiveCalculations.reduce((acc, c) => acc + c.inCart, 0);
-  const totalSoldCleared = catalogWithLiveCalculations.reduce((acc, c) => acc + c.sold, 0);
-  const grossRevenue = catalogWithLiveCalculations.reduce((acc, c) => acc + (c.sold * c.price), 0);
+  // Aggregates
+  const totalCapacity = catalogWithCalculations.reduce((acc, c) => acc + c.capacity, 0);
+  const totalRemainingOnShelf = catalogWithCalculations.reduce((acc, c) => acc + c.currentStock, 0);
+  const totalInCartInvigilated = catalogWithCalculations.reduce((acc, c) => acc + c.inCart, 0);
+  const totalSoldCleared = catalogWithCalculations.reduce((acc, c) => acc + c.sold, 0);
+  const grossRevenue = catalogWithCalculations.reduce((acc, c) => acc + (c.sold * c.price), 0);
   const totalClearedUnits = totalInCartInvigilated + totalSoldCleared;
   const overallClearancePct = Math.round((totalClearedUnits / totalCapacity) * 100);
   const activeInStore = Math.max(0, footfall.in - footfall.out);
 
-  // Filtered Catalog
-  const filteredCatalog = catalogWithLiveCalculations.filter(sku => {
-    const matchesSearch = sku.name.toLowerCase().includes(searchQuery.toLowerCase()) || sku.id.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredCatalog = catalogWithCalculations.filter(sku => {
+    const matchesSearch = 
+      sku.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      sku.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sku.barcode.includes(searchQuery);
     const matchesCategory = selectedCategory === "All" || sku.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -364,7 +418,7 @@ export default function RetailStudioDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50/80 text-slate-800 font-sans relative overflow-hidden">
-      {/* Retail Soft Glows */}
+      {/* Background Ambience */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-100/60 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-40 right-10 w-96 h-96 bg-emerald-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
 
@@ -379,7 +433,7 @@ export default function RetailStudioDashboard() {
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 tracking-tight">Retailer Vision OS</h1>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Multi-SKU Live Sync
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Barcode & Slot Synced
                 </span>
               </div>
               <p className="text-xs text-slate-500">Autonomous Shelf Compliance, Counter Queue & Clearance Intelligence</p>
@@ -417,7 +471,7 @@ export default function RetailStudioDashboard() {
         </div>
       </header>
 
-      {/* Main Dashboard Space */}
+      {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Counter Management & Rush Queue Alert Banner */}
@@ -451,9 +505,8 @@ export default function RetailStudioDashboard() {
               </div>
             </div>
 
-            {/* Counter Queue Cards */}
+            {/* Counter Queue Controls */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Counter 1 */}
               <div className="bg-white px-3.5 py-2 rounded-xl border border-slate-200 text-xs flex items-center gap-3 shadow-2xs">
                 <div>
                   <span className="text-slate-400 font-bold block text-[10px] uppercase">Counter 1</span>
@@ -465,7 +518,6 @@ export default function RetailStudioDashboard() {
                 </div>
               </div>
 
-              {/* Counter 2 */}
               <div className="bg-white px-3.5 py-2 rounded-xl border border-slate-200 text-xs flex items-center gap-3 shadow-2xs">
                 <div>
                   <span className="text-slate-400 font-bold block text-[10px] uppercase">Counter 2</span>
@@ -477,7 +529,6 @@ export default function RetailStudioDashboard() {
                 </div>
               </div>
 
-              {/* Counter 3 Deployment Switch */}
               <div className={`px-4 py-2 rounded-xl border text-xs flex items-center gap-3 transition ${
                 counterState.c3Active ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-slate-100 border-slate-200 text-slate-500"
               }`}>
@@ -501,9 +552,64 @@ export default function RetailStudioDashboard() {
           </div>
         </div>
 
+        {/* Real-Time Barcode Scanner Control Bar */}
+        <div className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <form onSubmit={handleBarcodeSubmit} className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <IconBarcode className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Direct Barcode Scanner Interface</h3>
+                <p className="text-[11px] text-slate-400">Scan product barcode to instantly update shelf slots & cart state</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Scan Mode Toggle */}
+              <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setScanMode("PICK")}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    scanMode === "PICK" ? "bg-white text-indigo-600 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Scan to Pick (+1)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScanMode("RETURN")}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    scanMode === "RETURN" ? "bg-white text-amber-600 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Scan to Return (-1)
+                </button>
+              </div>
+
+              {/* Barcode Quick Input */}
+              <input
+                ref={barcodeInputRef}
+                type="text"
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                placeholder="Scan / Type EAN Barcode..."
+                className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-52 font-mono"
+              />
+
+              <button
+                type="submit"
+                className="text-xs font-semibold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-2xs"
+              >
+                Execute Scan
+              </button>
+            </div>
+          </form>
+        </div>
+
         {/* 4 Macro KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Realtime Footfall */}
           <div className="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Store Footfall</span>
@@ -519,7 +625,6 @@ export default function RetailStudioDashboard() {
             </div>
           </div>
 
-          {/* Invigilated Condition */}
           <div className="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Invigilated Items</span>
@@ -534,7 +639,6 @@ export default function RetailStudioDashboard() {
             </div>
           </div>
 
-          {/* Realtime Stock Clearance */}
           <div className="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Clearance</span>
@@ -549,7 +653,6 @@ export default function RetailStudioDashboard() {
             <div className="text-[11px] text-slate-400 mt-2 font-medium">{totalRemainingOnShelf} of {totalCapacity} units remain on shelf</div>
           </div>
 
-          {/* Revenue */}
           <div className="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Cleared Revenue</span>
@@ -567,27 +670,25 @@ export default function RetailStudioDashboard() {
         {/* 50 SKUs Shelf Inventory & Live Activity Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Main 50 SKUs Table (2 Cols) */}
+          {/* Main 50 SKUs Table with Dual Pick & Remove Controls (2 Cols) */}
           <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             
-            {/* Search & Category Filter Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Dynamic Shelf Slots & SKU Monitoring</h2>
-                <p className="text-xs text-slate-500">50 SKUs calculated on: (Initial - InCart - Sold + Restock)</p>
+                <h2 className="text-base font-bold text-slate-900">Barcode-Driven Dynamic Shelf Slots</h2>
+                <p className="text-xs text-slate-500">50 SKUs with verified EAN barcodes. Slot updates instantly on Pick & Return</p>
               </div>
 
-              {/* Search Box */}
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search 50 SKUs (e.g. boAt, Lay's, Milk)..."
+                placeholder="Search by Name, SKU or Barcode..."
                 className="text-xs px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full sm:w-64"
               />
             </div>
 
-            {/* Category Filter Chips */}
+            {/* Category Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-3 text-xs scrollbar-none">
               {categories.map(cat => (
                 <button
@@ -604,7 +705,7 @@ export default function RetailStudioDashboard() {
               ))}
             </div>
 
-            {/* Scrollable 50 SKUs Table */}
+            {/* Table */}
             <div className="overflow-x-auto max-h-[520px] overflow-y-auto pr-1">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-white z-10 shadow-2xs">
@@ -612,8 +713,8 @@ export default function RetailStudioDashboard() {
                     <th className="pb-3 pt-1">Product Description</th>
                     <th className="pb-3 pt-1">Shelf Stock</th>
                     <th className="pb-3 pt-1">Vacant Slots</th>
-                    <th className="pb-3 pt-1">Clearance</th>
-                    <th className="pb-3 pt-1 text-right">Pick (In Cart)</th>
+                    <th className="pb-3 pt-1">In Cart</th>
+                    <th className="pb-3 pt-1 text-right">Pick / Return Control</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -631,6 +732,10 @@ export default function RetailStudioDashboard() {
                             <span className="text-indigo-600 font-semibold">{item.category}</span>
                             <span>•</span>
                             <span className="text-slate-700 font-bold">₹{item.price}</span>
+                            <span>•</span>
+                            <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                              {item.barcode}
+                            </span>
                           </div>
                         </td>
 
@@ -643,31 +748,47 @@ export default function RetailStudioDashboard() {
 
                         <td className="py-3">
                           <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
-                            {item.emptySlots} empty
+                            {item.emptySlots} vacant
                           </span>
                         </td>
 
                         <td className="py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                              <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${item.clearanceRate}%` }} />
-                            </div>
-                            <span className="text-xs font-mono text-slate-500 font-medium">{item.clearanceRate}%</span>
-                          </div>
+                          <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${
+                            item.inCart > 0 ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse" : "text-slate-400"
+                          }`}>
+                            {item.inCart} in cart
+                          </span>
                         </td>
 
+                        {/* Dual Pick & Return Buttons */}
                         <td className="py-3 text-right">
-                          <button
-                            disabled={isOut}
-                            onClick={() => handlePickProduct(item.id, item.name)}
-                            className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition active:scale-95 ${
-                              isOut 
-                                ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
-                                : "bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700"
-                            }`}
-                          >
-                            + Pick ({item.inCart})
-                          </button>
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              disabled={item.inCart <= 0}
+                              onClick={() => handleProductAction(item.id, item.name, item.barcode, "RETURN")}
+                              title="Return to Shelf (Vacate Cart)"
+                              className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition active:scale-95 ${
+                                item.inCart <= 0
+                                  ? "bg-slate-100 text-slate-300 cursor-not-allowed"
+                                  : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+                              }`}
+                            >
+                              - Return
+                            </button>
+
+                            <button
+                              disabled={isOut}
+                              onClick={() => handleProductAction(item.id, item.name, item.barcode, "PICK")}
+                              title="Pick from Shelf (Add to Cart)"
+                              className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition active:scale-95 ${
+                                isOut 
+                                  ? "bg-slate-100 text-slate-300 cursor-not-allowed" 
+                                  : "bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-200"
+                              }`}
+                            >
+                              + Pick
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -678,14 +799,13 @@ export default function RetailStudioDashboard() {
 
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
               <span>Showing {filteredCatalog.length} of 50 SKUs</span>
-              <span>Stock Clearance Engine: Dynamic In-Out Inferred</span>
+              <span>All shelf slot transitions barcode-verified</span>
             </div>
           </div>
 
-          {/* Right Rail: Activity, Counter Stats & Audit (1 Col) */}
+          {/* Right Column: Counter Summary & Live Vision Feed (1 Col) */}
           <div className="space-y-6">
 
-            {/* Counter Summary Box */}
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 shadow-xs">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Counter Load Distribution</h3>
               <div className="space-y-2.5 text-xs">
@@ -706,7 +826,6 @@ export default function RetailStudioDashboard() {
               </div>
             </div>
 
-            {/* Realtime Activity Feed */}
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 shadow-xs">
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Live Vision Feed</h3>
@@ -720,22 +839,21 @@ export default function RetailStudioDashboard() {
                       <p className="text-[10px] text-slate-400 mt-0.5">{ev.time}</p>
                     </div>
                     <span className={`w-2 h-2 rounded-full mt-1 shrink-0 ${
-                      ev.type === "alert" ? "bg-rose-500" : ev.type === "pick" ? "bg-amber-500" : "bg-emerald-500"
+                      ev.type === "alert" ? "bg-rose-500" : ev.type === "return" ? "bg-amber-500" : ev.type === "pick" ? "bg-indigo-500" : "bg-emerald-500"
                     }`} />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Invigilation Rule Card */}
             <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-sm">
               <div className="flex items-center gap-2 text-indigo-300 text-xs font-bold uppercase mb-2">
                 <IconShield className="w-4 h-4 text-indigo-300" />
-                <span>Multi-Criteria Stock Engine</span>
+                <span>Barcode Verification Architecture</span>
               </div>
-              <h4 className="font-bold text-sm text-white mb-1">Non-Lot Dynamic Invigilation</h4>
+              <h4 className="font-bold text-sm text-white mb-1">Dual-Action Slot Management</h4>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Stock calculations lot-based nahi hain. Scanner in/out events, camera invigilated cart additions, aur counter queue checkout verification ke direct intersection se vacant slots aur clearance compute hoti hai.
+                Shelf slots har pick aur return action par calibrate hote hain. Barcode read hone par system product ki invigilation tracking cart me store karta hai aur shelf vacant slot status ko dynamically reflect karta hai.
               </p>
             </div>
 
