@@ -1,21 +1,88 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  Store, 
-  Users, 
-  AlertCircle, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Volume2, 
-  VolumeX, 
-  CheckCircle, 
-  Package, 
-  TrendingUp, 
-  Activity, 
-  Sparkles, 
-  ShieldCheck 
-} from "lucide-react";
+
+// --- Zero-Dependency Clean Inline SVG Icons ---
+const IconStore = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
+    <path d="M2 7h20" />
+    <path d="M22 7a3 3 0 0 1-6 0" />
+    <path d="M16 7a3 3 0 0 1-6 0" />
+    <path d="M10 7a3 3 0 0 1-6 0" />
+  </svg>
+);
+
+const IconUsers = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const IconAlert = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const IconPackage = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m7.5 4.27 9 5.15" />
+    <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+    <path d="m3.3 7 8.7 5 8.7-5" />
+    <path d="M12 22V12" />
+  </svg>
+);
+
+const IconTrending = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </svg>
+);
+
+const IconShield = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+
+const IconVolume = ({ active, className = "w-4 h-4" }: { active: boolean; className?: string }) => (
+  active ? (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  ) : (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="22" y1="9" x2="16" y2="15" />
+      <line x1="16" y1="9" x2="22" y2="15" />
+    </svg>
+  )
+);
+
+const IconCheck = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+
+const IconSparkles = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+  </svg>
+);
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);
@@ -50,16 +117,15 @@ export default function Page() {
     { id: 3, text: "Crompton LED moved to cart (Invigilated)", time: "3m ago", type: "alert" }
   ]);
 
-  // Ensure Component Only Mounts on Browser (Prevents Next.js 15 SSR Build Hanging)
   useEffect(() => {
     setMounted(true);
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1200);
+    }, 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Safe Web Audio API (Strictly inside client check)
+  // Web Audio Alert Synthesizer
   const triggerAudio = (type: "pick" | "alert" | "checkout") => {
     if (typeof window === "undefined" || !audioEnabled) return;
     try {
@@ -89,7 +155,7 @@ export default function Page() {
         osc.stop(ctx.currentTime + 0.2);
       }
     } catch {
-      // Ignore audio failures safely
+      // Safe fallback
     }
   };
 
@@ -129,7 +195,6 @@ export default function Page() {
     ]);
   };
 
-  // SSR skeleton render during Next.js 15 build pass
   if (!mounted) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -138,7 +203,6 @@ export default function Page() {
     );
   }
 
-  // Quick Loader
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
@@ -147,7 +211,7 @@ export default function Page() {
         <p className="text-xs text-slate-500 mt-1 mb-5">Handshaking with Vision Terminal</p>
         <button
           onClick={() => setIsLoading(false)}
-          className="text-xs bg-slate-900 text-white px-4 py-2 rounded-xl font-semibold shadow-sm"
+          className="text-xs bg-slate-900 text-white px-4 py-2 rounded-xl font-semibold shadow-sm hover:bg-slate-800 transition"
         >
           Skip & Open Dashboard
         </button>
@@ -155,24 +219,23 @@ export default function Page() {
     );
   }
 
-  // Calculations
   const totalCapacity = shelfStock.reduce((acc, c) => acc + c.initialCapacity, 0);
   const totalRemaining = shelfStock.reduce((acc, c) => acc + c.currentStock, 0);
   const clearedUnits = totalCapacity - totalRemaining;
   const clearanceRate = Math.round((clearedUnits / totalCapacity) * 100);
 
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-800 font-sans relative overflow-hidden">
-      {/* Decorative Glows */}
+    <div className="min-h-screen bg-slate-50/80 text-slate-800 font-sans relative overflow-hidden">
+      {/* Background Soft Glows */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-100/60 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-40 right-10 w-96 h-96 bg-emerald-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
+      {/* Navigation Header */}
+      <header className="bg-white/85 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Store size={22} />
+              <IconStore className="w-6 h-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -186,9 +249,9 @@ export default function Page() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Team AIRS Badge */}
+            {/* Team AIRS Signature Badge */}
             <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100/80">
-              <Sparkles size={15} className="text-indigo-600" />
+              <IconSparkles className="w-4 h-4 text-indigo-600" />
               <div className="text-left">
                 <p className="text-[10px] uppercase font-bold text-slate-400 leading-none">Designed By</p>
                 <p className="text-xs font-extrabold text-indigo-900 tracking-wide">TEAM AIRS</p>
@@ -201,7 +264,7 @@ export default function Page() {
                 audioEnabled ? "bg-white text-slate-700 border-slate-200" : "bg-rose-50 text-rose-600 border-rose-200"
               }`}
             >
-              {audioEnabled ? <Volume2 size={16} className="text-indigo-600" /> : <VolumeX size={16} />}
+              <IconVolume active={audioEnabled} />
               <span className="hidden md:inline">{audioEnabled ? "Alerts On" : "Muted"}</span>
             </button>
 
@@ -209,14 +272,14 @@ export default function Page() {
               onClick={handleCheckout}
               className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition shadow-sm active:scale-95"
             >
-              <CheckCircle size={15} className="text-emerald-400" />
+              <IconCheck className="w-4 h-4 text-emerald-400" />
               <span>Checkout Cart</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Grid */}
+      {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -224,13 +287,14 @@ export default function Page() {
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Visitor Footfall</span>
               <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <Users size={17} />
+                <IconUsers className="w-4 h-4 text-indigo-600" />
               </div>
             </div>
             <div className="text-3xl font-black text-slate-900">{footfall.currentInStore} <span className="text-xs font-normal text-slate-500">in store</span></div>
             <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100 text-xs font-semibold">
-              <span className="flex items-center gap-1 text-emerald-600"><ArrowDownLeft size={13} /> In: {footfall.in}</span>
-              <span className="flex items-center gap-1 text-slate-500"><ArrowUpRight size={13} /> Out: {footfall.out}</span>
+              <span className="text-emerald-600 font-medium">In: {footfall.in}</span>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-500 font-medium">Out: {footfall.out}</span>
             </div>
           </div>
 
@@ -238,12 +302,12 @@ export default function Page() {
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Invigilated Items</span>
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cartState.inCartNotSold > 0 ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-400"}`}>
-                <AlertCircle size={17} />
+                <IconAlert className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-black text-amber-600">{cartState.inCartNotSold} <span className="text-xs font-normal text-slate-500">in cart</span></div>
             <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-xs text-amber-700 font-medium">
-              <ShieldCheck size={14} className="text-amber-600 shrink-0" />
+              <IconShield className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Camera active: In Cart, Not Sold</span>
             </div>
           </div>
@@ -252,7 +316,7 @@ export default function Page() {
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Shelf Clearance</span>
               <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                <Package size={17} />
+                <IconPackage className="w-4 h-4 text-blue-600" />
               </div>
             </div>
             <div className="text-3xl font-black text-slate-900">{clearanceRate}%</div>
@@ -265,7 +329,7 @@ export default function Page() {
             <div className="flex items-center justify-between text-slate-500 mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Cleared Revenue</span>
               <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-                <TrendingUp size={17} />
+                <IconTrending className="w-4 h-4 text-emerald-600" />
               </div>
             </div>
             <div className="text-3xl font-black text-slate-900">₹{cartState.todayRevenue.toLocaleString("en-IN")}</div>
@@ -335,10 +399,7 @@ export default function Page() {
           <div className="space-y-6">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 shadow-xs">
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                  <Activity size={15} className="text-indigo-600" />
-                  Live Store Activity
-                </h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Live Store Activity</h3>
                 <span className="text-[11px] text-slate-400">Real-time</span>
               </div>
               <div className="space-y-3">
@@ -358,7 +419,7 @@ export default function Page() {
 
             <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-sm">
               <div className="flex items-center gap-2 text-indigo-300 text-xs font-bold uppercase mb-2">
-                <ShieldCheck size={16} />
+                <IconShield className="w-4 h-4 text-indigo-300" />
                 <span>Invigilation Rule</span>
               </div>
               <h4 className="font-bold text-sm text-white mb-1">In Cart & Not Sold Detection</h4>
