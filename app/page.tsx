@@ -45,6 +45,10 @@ export default function ARISMasterOS() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Dwell Camera Stream Blob Holder
+  const [dwellStreamBlob, setDwellStreamBlob] = useState<string | null>(null);
+  const [streamConnected, setStreamConnected] = useState(false);
+
   // Variable Footfall State
   const [footfall, setFootfall] = useState({ in: 86, out: 54 });
   const [lastEvent, setLastEvent] = useState<"IN" | "OUT" | null>(null);
@@ -147,7 +151,40 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // --- FIXED NTFY PUSH ENGINE (NO PREFLIGHT CORS ERROR + BACKEND FALLBACK) ---
+  // --- DWELL TIME CAMERA STREAM FETCHER (FIXES BROKEN IMAGE VIA TUNNEL BYPASS) ---
+  useEffect(() => {
+    let active = true;
+    const fetchStreamFrame = async () => {
+      try {
+        const res = await fetch(`${BACKEND_TUNNEL_URL}/thermal_blob`, {
+          headers: { "bypass-tunnel-reminder": "true" }
+        });
+        if (res.ok && active) {
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          setDwellStreamBlob(prev => {
+            if (prev) URL.revokeObjectURL(prev); // Free memory
+            return objectUrl;
+          });
+          setStreamConnected(true);
+        }
+      } catch {
+        if (active) setStreamConnected(false);
+      } finally {
+        if (active) setTimeout(fetchStreamFrame, 40); // 25 FPS smooth
+      }
+    };
+
+    if (activeView === "dwell") {
+      fetchStreamFrame();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [activeView]);
+
+  // --- FIXED NTFY PUSH ENGINE ---
   const triggerNtfyAlert = async (title: string, msg: string) => {
     playTone(320, "sawtooth", 0.3);
     setTimeout(() => playTone(240, "sawtooth", 0.35), 180);
@@ -169,11 +206,9 @@ export default function ARISMasterOS() {
         sent = true;
         notify("🔔 Notification pushed to Manager's Phone!");
       }
-    } catch (e) {
-      // Continue to backend fallback
-    }
+    } catch (e) {}
 
-    // 2. Direct Backend Server-Side Dispatch Fallback (If browser adblocker blocks direct ntfy)
+    // 2. Direct Backend Server-Side Dispatch Fallback
     if (!sent) {
       try {
         const backendRes = await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
@@ -247,6 +282,15 @@ export default function ARISMasterOS() {
   };
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
+
+  // Psychological Data PDF Export Trigger
+  const exportPsychologicalPDF = () => {
+    playTone(880, "sine", 0.15);
+    notify("📄 Preparing Official Psychological Dwell Audit PDF...");
+    setTimeout(() => {
+      window.print();
+    }, 800);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-3 lg:p-5 space-y-4 relative selection:bg-indigo-600">
@@ -640,7 +684,7 @@ export default function ARISMasterOS() {
         </div>
       )}
 
-      {/* ================= OPTION 2: DWELL TIME & PSYCHOLOGICAL DATA ================= */}
+      {/* ================= OPTION 2: DWELL TIME & PSYCHOLOGICAL DATA (MODIFIED ZERO-LAG STREAM) ================= */}
       {activeView === "dwell" && (
         <div className="space-y-4 animate-fadeIn">
           
@@ -652,8 +696,8 @@ export default function ARISMasterOS() {
             
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { playTone(880, "sine", 0.15); notify("📄 Generating Psychological Data Report PDF..."); }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-1.5"
+                onClick={exportPsychologicalPDF}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-1.5 transition active:scale-95"
               >
                 <span>📥 Export Psychological Data PDF</span>
               </button>
@@ -668,23 +712,35 @@ export default function ARISMasterOS() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
+            {/* Live Thermal Stream Box */}
             <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Thermal Heatwave Camera Feed</h3>
-                <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">
-                  Zero-PII Compliance
+                <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {streamConnected ? "Live Heatwave Active" : "Connecting..."}
                 </span>
               </div>
 
+              {/* ROBUST STREAM CANVAS VIA BLOB / BYPASS */}
               <div className="aspect-video bg-black rounded-2xl overflow-hidden relative border border-slate-800 flex items-center justify-center shadow-inner">
-                <img
-                  src={`${BACKEND_TUNNEL_URL}/thermal_stream`}
-                  alt="Live Thermal Heatwave Stream"
-                  className="w-full h-full object-cover"
-                />
+                {dwellStreamBlob ? (
+                  <img
+                    src={dwellStreamBlob}
+                    alt="Live Thermal Heatwave Stream"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center space-y-2.5 p-4 text-center">
+                    <div className="w-9 h-9 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs font-mono text-slate-300 font-bold">Connecting to Phone Thermal Sensor...</span>
+                    <span className="text-[10px] font-mono text-slate-500">Bypassing Localtunnel Gateway • Zero PII</span>
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Psychological Metrics */}
             <div className="lg:col-span-5 space-y-4">
               <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 shadow-xl">
                 <div className="flex justify-between items-center">
