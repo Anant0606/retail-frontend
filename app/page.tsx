@@ -19,16 +19,16 @@ interface SKUItem {
 }
 
 const MASTER_SKUS: SKUItem[] = [
-  { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch", category: "Gadgets", price: 1499, capacity: 20, stock: 4, slot: "Shelf A-01" },
-  { id: "SKU-5962", barcode: "8902653015962", name: "Crompton LED Light 5W", category: "Lighting", price: 1000, capacity: 25, stock: 5, slot: "Shelf B-02" },
-  { id: "SKU-1473", barcode: "9789354401473", name: "Fingerprint Classics Book", category: "Books", price: 149, capacity: 30, stock: 8, slot: "Aisle D-01" },
-  { id: "SKU-1837", barcode: "8901491101837", name: "Lays Magic Masala Chips", category: "Snacks", price: 20, capacity: 50, stock: 7, slot: "Shelf C-04" },
-  { id: "SKU-1005", barcode: "8901262010051", name: "Amul Taaza Milk 1L", category: "Dairy", price: 74, capacity: 40, stock: 11, slot: "Chiller-01" },
-  { id: "SKU-1009", barcode: "8901058852095", name: "Maggi 2-Minute Noodles", category: "Snacks", price: 96, capacity: 45, stock: 12, slot: "Shelf C-02" },
-  { id: "SKU-2001", barcode: "8901030584201", name: "Colgate Strong Teeth 200g", category: "Essentials", price: 115, capacity: 35, stock: 9, slot: "Shelf E-01" },
-  { id: "SKU-2002", barcode: "8901138501202", name: "Surf Excel Easy Wash 1kg", category: "Essentials", price: 135, capacity: 25, stock: 6, slot: "Shelf E-03" },
-  { id: "SKU-2003", barcode: "8901030351203", name: "Clinic Plus Shampoo 340ml", category: "Essentials", price: 210, capacity: 30, stock: 8, slot: "Shelf E-04" },
-  { id: "SKU-2004", barcode: "8901450021204", name: "Bru Instant Coffee 100g", category: "Beverages", price: 280, capacity: 20, stock: 4, slot: "Shelf F-01" },
+  { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch", category: "Gadgets", price: 1499, capacity: 20, stock: 15, slot: "Shelf A-01" },
+  { id: "SKU-5962", barcode: "8902653015962", name: "Crompton LED Light 5W", category: "Lighting", price: 1000, capacity: 25, stock: 19, slot: "Shelf B-02" },
+  { id: "SKU-1473", barcode: "9789354401473", name: "Fingerprint Classics Book", category: "Books", price: 149, capacity: 30, stock: 22, slot: "Aisle D-01" },
+  { id: "SKU-1837", barcode: "8901491101837", name: "Lays Magic Masala Chips", category: "Snacks", price: 20, capacity: 50, stock: 36, slot: "Shelf C-04" },
+  { id: "SKU-1005", barcode: "8901262010051", name: "Amul Taaza Milk 1L", category: "Dairy", price: 74, capacity: 40, stock: 29, slot: "Chiller-01" },
+  { id: "SKU-1009", barcode: "8901058852095", name: "Maggi 2-Minute Noodles", category: "Snacks", price: 96, capacity: 45, stock: 32, slot: "Shelf C-02" },
+  { id: "SKU-2001", barcode: "8901030584201", name: "Colgate Strong Teeth 200g", category: "Essentials", price: 115, capacity: 35, stock: 25, slot: "Shelf E-01" },
+  { id: "SKU-2002", barcode: "8901138501202", name: "Surf Excel Easy Wash 1kg", category: "Essentials", price: 135, capacity: 25, stock: 18, slot: "Shelf E-03" },
+  { id: "SKU-2003", barcode: "8901030351203", name: "Clinic Plus Shampoo 340ml", category: "Essentials", price: 210, capacity: 30, stock: 22, slot: "Shelf E-04" },
+  { id: "SKU-2004", barcode: "8901450021204", name: "Bru Instant Coffee 100g", category: "Beverages", price: 280, capacity: 20, stock: 15, slot: "Shelf F-01" },
   ...Array.from({ length: 40 }, (_, i) => ({
     id: `SKU-30${i + 10}`,
     barcode: `8905650133${i + 10}0`,
@@ -36,7 +36,7 @@ const MASTER_SKUS: SKUItem[] = [
     category: i % 2 === 0 ? "Groceries" : "Electronics",
     price: (i + 1) * 35,
     capacity: 40,
-    stock: Math.floor(Math.random() * 20) + 3,
+    stock: Math.floor(Math.random() * 8) + 29, // initialized slightly above 70% threshold
     slot: `Zone-${String.fromCharCode(65 + (i % 5))}-${i + 1}`
   }))
 ];
@@ -61,13 +61,17 @@ export default function ARISMasterOS() {
 
   // Dynamic Live Counters State
   const [counters, setCounters] = useState({ c1: 3, c2: 4, c3Active: false });
-  const lastAlertTimestamp = useRef<number>(0);
+  const lastCounterAlertTimestamp = useRef<number>(0);
   const isQueueCritical = counters.c1 > 5 || counters.c2 > 5;
 
+  // Inventory & Cart
   const [skus, setSkus] = useState<SKUItem[]>(MASTER_SKUS);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Alert tracking reference to prevent duplicate spamming
+  const notifiedDepletions = useRef<Set<string>>(new Set());
 
   const [insights, setInsights] = useState({
     person_detected: false,
@@ -81,7 +85,7 @@ export default function ARISMasterOS() {
   const [activities, setActivities] = useState([
     { text: "Camera Vision Engine: Optical Gate tracking engaged", time: "Just now" },
     { text: "Counter queue surveillance active (Auto-threshold: 5 persons)", time: "1m ago" },
-    { text: "FIFO Depletion monitor: Critical items listed below 70%", time: "3m ago" },
+    { text: "FIFO Depletion monitor: Autonomous <70% shelf alert engine armed", time: "2m ago" },
   ]);
 
   useEffect(() => {
@@ -109,7 +113,7 @@ export default function ARISMasterOS() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // 1. Natural In/Out Footfall Fluctuations
+  // --- 1. CONTINUOUS LIVE LOGICAL FOOTFALL ENGINE ---
   useEffect(() => {
     const footfallTimer = setInterval(() => {
       setFootfall(prev => {
@@ -133,13 +137,14 @@ export default function ARISMasterOS() {
         }
         return prev;
       });
+
       setTimeout(() => setLastEvent(null), 1100);
     }, 2800);
 
     return () => clearInterval(footfallTimer);
   }, []);
 
-  // 2. Dynamic Live Queue Balancing (>5 Alert Engine)
+  // --- 2. CONTINUOUS LIVE QUEUE BALANCING & AUTO-ALERT (>5 THRESHOLD) ---
   useEffect(() => {
     const queueTimer = setInterval(() => {
       setCounters(prev => {
@@ -158,8 +163,8 @@ export default function ARISMasterOS() {
         const criticalNow = nextC1 > 5 || nextC2 > 5;
         const now = Date.now();
 
-        if (criticalNow && !prev.c3Active && now - lastAlertTimestamp.current > 25000) {
-          lastAlertTimestamp.current = now;
+        if (criticalNow && !prev.c3Active && now - lastCounterAlertTimestamp.current > 25000) {
+          lastCounterAlertTimestamp.current = now;
           playTone(300, "sawtooth", 0.4);
           setTimeout(() => playTone(220, "sawtooth", 0.45), 200);
 
@@ -167,7 +172,7 @@ export default function ARISMasterOS() {
           triggerNtfyAlert("AUTOMATED QUEUE CONGESTION ALERT (>5)", alertMsg);
 
           setActivities(a => [
-            { text: `🚨 Auto-Alert Fired: Counter line exceeded threshold (>5 in line)`, time: "Just now" },
+            { text: `🚨 Auto-Alert: Counter line exceeded threshold (>5 in line)`, time: "Just now" },
             ...a.slice(0, 6)
           ]);
         }
@@ -179,7 +184,44 @@ export default function ARISMasterOS() {
     return () => clearInterval(queueTimer);
   }, []);
 
-  // Poll Insights from Python Backend
+  // --- 3. DYNAMIC FIFO SHELF DEPLETION & AUTOMATED <70% THRESHOLD ENGINE ---
+  useEffect(() => {
+    const depletionTimer = setInterval(() => {
+      setSkus(prevSkus => {
+        // Pick a random SKU to simulate active in-store purchase
+        const targetIndex = Math.floor(Math.random() * Math.min(prevSkus.length, 12));
+        const targetItem = prevSkus[targetIndex];
+        if (!targetItem || targetItem.stock <= 1) return prevSkus;
+
+        const newStock = targetItem.stock - 1;
+        const ratio = newStock / targetItem.capacity;
+
+        // Check if stock has breached < 70% threshold
+        if (ratio < 0.7 && !notifiedDepletions.current.has(targetItem.id)) {
+          notifiedDepletions.current.add(targetItem.id);
+
+          playTone(450, "sawtooth", 0.35);
+          setTimeout(() => playTone(300, "sawtooth", 0.4), 220);
+
+          const percentLeft = Math.round(ratio * 100);
+          const alertMsg = `FIFO CRITICAL: ${targetItem.name} (${targetItem.slot}) dropped to ${newStock}/${targetItem.capacity} units (${percentLeft}%). Restock batch immediately!`;
+          
+          triggerNtfyAlert(`FIFO DEPLETION ALERT (<70%): ${targetItem.slot}`, alertMsg);
+
+          setActivities(a => [
+            { text: `⚠️ FIFO Alert: ${targetItem.name} dipped below 70% capacity (${newStock}/${targetItem.capacity})`, time: "Just now" },
+            ...a.slice(0, 6)
+          ]);
+        }
+
+        return prevSkus.map((item, idx) => idx === targetIndex ? { ...item, stock: newStock } : item);
+      });
+    }, 4200);
+
+    return () => clearInterval(depletionTimer);
+  }, []);
+
+  // Poll Psychological Stream
   useEffect(() => {
     let active = true;
     const interval = setInterval(async () => {
@@ -196,7 +238,7 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // Fetch Thermal Image Stream
+  // Dwell Stream Consumer
   useEffect(() => {
     let active = true;
     const fetchStreamFrame = async () => {
@@ -259,7 +301,6 @@ export default function ARISMasterOS() {
     }
   };
 
-  // Barcode Scanner Modal Workflow
   const startScannerModal = async (mode: "REFILL" | "CHECKOUT") => {
     setScanMode(mode);
     setScannerOpen(true);
@@ -296,9 +337,10 @@ export default function ARISMasterOS() {
       if (activeMode === "REFILL") {
         playTone(980, "sine", 0.25);
         setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: s.capacity } : s));
+        notifiedDepletions.current.delete(item.id); // clear depletion cooldown on refill
         triggerNtfyAlert("SHELF LOT REFILLED", `Refill verified for ${item.name} (${item.slot}). Stock restored to ${item.capacity} units.`);
         setActivities(a => [{ text: `📦 Lot Refilled: ${item.name} restored to ${item.capacity}`, time: "Just now" }, ...a.slice(0, 6)]);
-        notify(`✅ [REFILLED]: ${item.name} capacity restored! Manager notified.`);
+        notify(`✅ [REFILLED]: ${item.name} restored to full capacity!`);
       } else {
         playTone(850, "sine", 0.15);
         setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
@@ -308,9 +350,10 @@ export default function ARISMasterOS() {
         setActivities(a => [{ text: `💳 Sold & Added to Bill: ${item.name} (Left: ${remaining})`, time: "Just now" }, ...a.slice(0, 6)]);
         notify(`✅ [SOLD]: Added ${item.name} to bill. Left: ${remaining}`);
 
-        if (remaining / item.capacity < 0.7) {
+        if (remaining / item.capacity < 0.7 && !notifiedDepletions.current.has(item.id)) {
+          notifiedDepletions.current.add(item.id);
           setTimeout(() => {
-            triggerNtfyAlert("LOW STOCK AUTO-TRIGGER", `${item.name} dropped to ${remaining} units (<70%).`);
+            triggerNtfyAlert("LOW STOCK AUTO-TRIGGER (<70%)", `${item.name} dropped to ${remaining} units (<70%).`);
           }, 600);
         }
       }
@@ -338,7 +381,7 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
-  // File Save + Print to PDF Engine
+  // Direct File Download + Native Print
   const saveInvoiceAsPDF = () => {
     const totalAmount = Object.entries(cart).reduce((acc, [id, qty]) => {
       const item = skus.find(s => s.id === id);
@@ -738,7 +781,7 @@ export default function ARISMasterOS() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* LIVE FOOTFALL (DYNAMIC CONSERVATION LAW) */}
+            {/* LIVE FOOTFALL */}
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
               <div className={`bg-[#0f172a] border ${lastEvent === "IN" ? "border-emerald-400 scale-[1.02] shadow-[0_0_15px_rgba(52,211,153,0.3)]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center justify-center gap-1">
@@ -769,7 +812,7 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            {/* LIVE QUEUE COUNTERS WITH AUTOMATED LIMIT > 5 ALERT */}
+            {/* LIVE QUEUE COUNTERS WITH AUTO ALERT */}
             <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
@@ -866,6 +909,7 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
+            {/* DYNAMIC FIFO LOW STOCK ALERT TABLE (<70% WITH AUTONOMOUS AUTO-ALERT) */}
             <div className="lg:col-span-5 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center">
@@ -905,7 +949,7 @@ export default function ARISMasterOS() {
               </div>
 
               <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
-                <span className="text-[10px] font-mono text-slate-400">FIFO Restock Priority Active</span>
+                <span className="text-[10px] font-mono text-slate-400">Auto-Alert armed at &lt;70%</span>
                 <button
                   onClick={() => triggerNtfyAlert("FIFO BATCH RESTOCK DISPATCH", `Critical refill required for ${lowStockItems.length} items below 70% capacity.`)}
                   className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow transition active:scale-95"
@@ -987,6 +1031,7 @@ export default function ARISMasterOS() {
                             onClick={() => {
                               playTone(800, "sine", 0.1);
                               setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: s.capacity } : s));
+                              notifiedDepletions.current.delete(item.id);
                               notify(`Refilled ${item.name} lot!`);
                             }}
                             className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-[10px]"
