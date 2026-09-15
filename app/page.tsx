@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
-const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt"; // Active localtunnel link
+const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt"; // Verify current active tunnel
 
 interface SKUItem {
   id: string;
@@ -45,7 +45,7 @@ export default function ARISMasterOS() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Dwell Camera Stream Blob Holder
+  // Dwell Stream Blob Holder
   const [dwellStreamBlob, setDwellStreamBlob] = useState<string | null>(null);
   const [streamConnected, setStreamConnected] = useState(false);
 
@@ -81,7 +81,7 @@ export default function ARISMasterOS() {
     { text: "FIFO Depletion monitor: 34 SKUs dropped below 70%", time: "3m ago", type: "alert" },
   ]);
 
-  // Web Audio Context Synthesizer (Instant buzzer/beep)
+  // Web Audio Context Synthesizer
   const playTone = (freq = 880, type: OscillatorType = "sine", duration = 0.15) => {
     try {
       const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -151,27 +151,34 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // --- DWELL TIME CAMERA STREAM FETCHER (FIXES BROKEN IMAGE VIA TUNNEL BYPASS) ---
+  // --- HARDENED DWELL TIME CAMERA STREAM FETCHER ---
   useEffect(() => {
     let active = true;
     const fetchStreamFrame = async () => {
       try {
         const res = await fetch(`${BACKEND_TUNNEL_URL}/thermal_blob`, {
-          headers: { "bypass-tunnel-reminder": "true" }
+          headers: { 
+            "bypass-tunnel-reminder": "true" 
+          },
+          cache: "no-store"
         });
-        if (res.ok && active) {
+
+        const contentType = res.headers.get("content-type");
+        if (res.ok && contentType && contentType.includes("image") && active) {
           const blob = await res.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          setDwellStreamBlob(prev => {
-            if (prev) URL.revokeObjectURL(prev); // Free memory
-            return objectUrl;
-          });
-          setStreamConnected(true);
+          if (blob.size > 1000) {
+            const objectUrl = URL.createObjectURL(blob);
+            setDwellStreamBlob(prev => {
+              if (prev) URL.revokeObjectURL(prev);
+              return objectUrl;
+            });
+            setStreamConnected(true);
+          }
         }
       } catch {
         if (active) setStreamConnected(false);
       } finally {
-        if (active) setTimeout(fetchStreamFrame, 40); // 25 FPS smooth
+        if (active) setTimeout(fetchStreamFrame, 50); // 20 FPS
       }
     };
 
@@ -192,7 +199,6 @@ export default function ARISMasterOS() {
 
     let sent = false;
 
-    // 1. URL Query Parameters Method (Bypasses Browser CORS Options Preflight)
     try {
       const encodedTitle = encodeURIComponent(`🚨 ${title}`);
       const ntfyUrl = `https://ntfy.sh/${NTFY_TOPIC}?title=${encodedTitle}&priority=urgent&tags=warning,rotating_light`;
@@ -208,7 +214,6 @@ export default function ARISMasterOS() {
       }
     } catch (e) {}
 
-    // 2. Direct Backend Server-Side Dispatch Fallback
     if (!sent) {
       try {
         const backendRes = await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
@@ -283,7 +288,6 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
-  // Psychological Data PDF Export Trigger
   const exportPsychologicalPDF = () => {
     playTone(880, "sine", 0.15);
     notify("📄 Preparing Official Psychological Dwell Audit PDF...");
@@ -314,7 +318,6 @@ export default function ARISMasterOS() {
       <nav className="bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xl relative z-40">
         
         <div className="flex items-center gap-3">
-          {/* Hamburger 3-Line Button */}
           <button
             onClick={() => { playTone(500, "sine", 0.05); setMenuOpen(!menuOpen); }}
             className="w-10 h-10 rounded-xl bg-slate-950 border border-indigo-500/40 hover:border-indigo-400 flex flex-col items-center justify-center gap-1.5 transition shadow-inner active:scale-95"
@@ -334,7 +337,6 @@ export default function ARISMasterOS() {
           </div>
         </div>
 
-        {/* Live Vision Active Badge */}
         <div className="flex items-center gap-2">
           <span className="px-3 py-1.5 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-300 text-[11px] font-mono font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -343,7 +345,7 @@ export default function ARISMasterOS() {
         </div>
       </nav>
 
-      {/* ================= FIXED SOLID SLIDE-OUT / POP OVER MENU ================= */}
+      {/* ================= FIXED SOLID SLIDE-OUT MENU ================= */}
       {menuOpen && (
         <div className="fixed top-16 left-4 z-50 w-80 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl space-y-2 animate-fadeIn ring-2 ring-indigo-500/30">
           <div className="flex justify-between items-center pb-2 border-b border-slate-800">
@@ -408,13 +410,9 @@ export default function ARISMasterOS() {
       {activeView === "home" && (
         <div className="space-y-4 animate-fadeIn">
           
-          {/* TOP METRICS & COUNTER MONITORING */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* Dynamic Footfall Cards */}
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
-              
-              {/* CAM IN CARD */}
               <div className={`bg-slate-900 border ${lastEvent === "IN" ? "border-emerald-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -426,7 +424,6 @@ export default function ARISMasterOS() {
                 </span>
               </div>
 
-              {/* EXIT OUT CARD */}
               <div className={`bg-slate-900 border ${lastEvent === "OUT" ? "border-rose-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-rose-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
@@ -438,16 +435,13 @@ export default function ARISMasterOS() {
                 </span>
               </div>
 
-              {/* ACTIVE SHOPPERS */}
               <div className="bg-slate-900 border border-indigo-900/60 p-3 rounded-2xl text-center relative overflow-hidden">
                 <span className="text-[10px] uppercase font-bold text-indigo-300 block">Active Shoppers</span>
                 <span className="text-2xl lg:text-3xl font-black text-indigo-400">{activeInStore}</span>
                 <span className="text-[9px] text-indigo-400/70 font-mono block">In Floor Zone</span>
               </div>
-
             </div>
 
-            {/* Counter Queue Section with Dedicated Alert Button */}
             <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue Monitoring & Alerts</h3>
@@ -458,7 +452,6 @@ export default function ARISMasterOS() {
                 )}
               </div>
 
-              {/* Queue Visual Indicators */}
               <div className="grid grid-cols-3 gap-2.5 items-center">
                 <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-1">
                   <div className="flex justify-between text-[10px]">
@@ -497,7 +490,6 @@ export default function ARISMasterOS() {
                 </div>
               </div>
 
-              {/* Counter Alert Button */}
               <div className="flex justify-end pt-2 border-t border-slate-800/80">
                 <button
                   onClick={() => triggerNtfyAlert(
@@ -513,10 +505,8 @@ export default function ARISMasterOS() {
 
           </div>
 
-          {/* LOWER SPLIT: LIVE STORE ACTIVITY & FIFO LOW STOCK ALERT TABLE */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* Live Activity Stream Table */}
             <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Updation Store Activity</h3>
@@ -536,7 +526,6 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            {/* FIFO LOW STOCK ALERT TABLE (<70%) WITH ALERT BUZZER */}
             <div className="lg:col-span-5 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center">
@@ -561,7 +550,6 @@ export default function ARISMasterOS() {
                           </span>
                         </div>
 
-                        {/* Alert Buzzer Button */}
                         <button
                           onClick={() => {
                             triggerNtfyAlert(`LOW STOCK: ${item.slot}`, `${item.name} is down to ${item.stock} units (${ratio}%). Dispatch restock lot.`);
@@ -577,7 +565,6 @@ export default function ARISMasterOS() {
                 </div>
               </div>
 
-              {/* FIFO Batch Alert Push */}
               <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
                 <span className="text-[10px] font-mono text-slate-400">FIFO Restock Priority Active</span>
                 <button
@@ -684,7 +671,7 @@ export default function ARISMasterOS() {
         </div>
       )}
 
-      {/* ================= OPTION 2: DWELL TIME & PSYCHOLOGICAL DATA (MODIFIED ZERO-LAG STREAM) ================= */}
+      {/* ================= OPTION 2: DWELL TIME & PSYCHOLOGICAL DATA ================= */}
       {activeView === "dwell" && (
         <div className="space-y-4 animate-fadeIn">
           
@@ -840,7 +827,6 @@ export default function ARISMasterOS() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* Quick Select 50+ SKUs */}
             <div className="lg:col-span-8 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">50+ SKUs Quick Select Catalog</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
@@ -861,7 +847,6 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            {/* Active Billing & Invoice PDF */}
             <div className="lg:col-span-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between space-y-4">
               <div>
                 <h3 className="text-sm font-black text-white pb-3 border-b border-slate-800">Active Bill & Invoicing</h3>
