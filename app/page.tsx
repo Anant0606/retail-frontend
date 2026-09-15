@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
-const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt"; // Verify current active tunnel
+const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt/"; // Verify current active tunnel
 
 interface SKUItem {
   id: string;
