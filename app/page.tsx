@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
@@ -52,18 +52,19 @@ export default function ARISMasterOS() {
   // Barcode Viewfinder Modal State
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<"REFILL" | "CHECKOUT">("CHECKOUT");
-  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamTrackRef = useRef<MediaStream | null>(null);
 
   // Dynamic Variable Footfall
   const [footfall, setFootfall] = useState({ in: 86, out: 54 });
   const [lastEvent, setLastEvent] = useState<"IN" | "OUT" | null>(null);
   const activeInStore = Math.max(0, footfall.in - footfall.out);
 
-  // Counter Queue Status
+  // Queue Status
   const [counters, setCounters] = useState({ c1: 5, c2: 4, c3Active: false });
   const isRushAlert = counters.c1 >= 4 && counters.c2 >= 4 && !counters.c3Active;
 
-  // SKU Stocks & Cart
+  // Inventory & Cart
   const [skus, setSkus] = useState<SKUItem[]>(MASTER_SKUS);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -79,7 +80,6 @@ export default function ARISMasterOS() {
     psychology_insight: "Live camera analyzing aisle movement...",
   });
 
-  // Live Activity Log
   const [activities, setActivities] = useState([
     { text: "Camera Vision Engine: Live human tracking engaged", time: "Just now" },
     { text: "Dual-Mode Barcode Scanner Ready (Refill & Sold modes)", time: "1m ago" },
@@ -148,7 +148,7 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // Live Camera Stream Consumer (For Dwell View & Scanner Viewfinder)
+  // Live Camera Stream Consumer for Dwell View
   useEffect(() => {
     let active = true;
     const fetchStreamFrame = async () => {
@@ -176,14 +176,14 @@ export default function ARISMasterOS() {
       }
     };
 
-    if (activeView === "dwell" || scannerOpen) {
+    if (activeView === "dwell") {
       fetchStreamFrame();
     }
 
     return () => {
       active = false;
     };
-  }, [activeView, scannerOpen]);
+  }, [activeView]);
 
   // Alert Dispatcher via ntfy
   const triggerNtfyAlert = async (title: string, msg: string) => {
@@ -212,62 +212,82 @@ export default function ARISMasterOS() {
     }
   };
 
-  // --- DUAL-MODE BARCODE WORKFLOW (MODAL VIEWFINDER + HARDWARE SCAN) ---
+  // --- DUAL-MODE BARCODE WORKFLOW ---
   const startScannerModal = async (mode: "REFILL" | "CHECKOUT") => {
     setScanMode(mode);
     setScannerOpen(true);
-    setIsScanning(true);
     playTone(600, "sine", 0.1);
-    notify(`📷 [${mode} MODE] Aim barcode inside red laser viewfinder...`);
+    notify(`📷 [${mode} MODE] Scanner active. Aim barcode inside laser.`);
 
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      streamTrackRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch {
+      // Fallback if browser direct camera permission is unavailable: call backend scan bridge
+      triggerBackendBarcodeScan(mode);
+    }
+  };
+
+  const closeScannerModal = () => {
+    if (streamTrackRef.current) {
+      streamTrackRef.current.getTracks().forEach(track => track.stop());
+      streamTrackRef.current = null;
+    }
+    setScannerOpen(false);
+  };
+
+  const triggerBackendBarcodeScan = async (mode: "REFILL" | "CHECKOUT") => {
     try {
       const res = await fetch(`${BACKEND_TUNNEL_URL}/scan-barcode`, {
         method: "POST",
         headers: { "bypass-tunnel-reminder": "true" }
       });
       const data = await res.json();
-
       if (data.status === "success" && data.barcode) {
-        const item = skus.find(s => s.barcode === data.barcode || s.id === data.barcode);
-
-        if (item) {
-          if (mode === "REFILL") {
-            // MODE 1: REFILL SHELF LOT
-            playTone(980, "sine", 0.25);
-            setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: s.capacity } : s));
-            triggerNtfyAlert("SHELF LOT REFILLED", `Refill verified for ${item.name} (${item.slot}). Stock restored to ${item.capacity} units.`);
-            setActivities(a => [{ text: `📦 Lot Refilled: ${item.name} restored to ${item.capacity}`, time: "Just now" }, ...a.slice(0, 6)]);
-            notify(`✅ [REFILLED]: ${item.name} capacity restored! Manager notified.`);
-          } else {
-            // MODE 2: PRODUCT SOLD OUT CHECKOUT
-            playTone(850, "sine", 0.15);
-            setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
-            setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: Math.max(0, s.stock - 1) } : s));
-
-            const remaining = item.stock - 1;
-            setActivities(a => [{ text: `💳 Sold & Added to Bill: ${item.name} (Left: ${remaining})`, time: "Just now" }, ...a.slice(0, 6)]);
-            notify(`✅ [SOLD]: Added ${item.name} to bill. Remaining stock: ${remaining}`);
-
-            if (remaining / item.capacity < 0.7) {
-              setTimeout(() => {
-                triggerNtfyAlert("LOW STOCK AUTO-TRIGGER", `${item.name} dropped to ${remaining} units (<70%).`);
-              }, 600);
-            }
-          }
-          // Auto close scanner on success after brief confirmation
-          setTimeout(() => setScannerOpen(false), 900);
-        } else {
-          playTone(250, "square", 0.2);
-          notify(`⚠️ Scanned Barcode: ${data.barcode} (Unregistered SKU)`);
-        }
-      } else {
-        playTone(220, "square", 0.25);
-        notify("❌ No barcode detected. Ensure barcode is well lit.");
+        handleDetectedBarcode(data.barcode, mode);
       }
-    } catch {
-      notify("❌ Backend bridge offline. Check Python terminal.");
-    } finally {
-      setIsScanning(false);
+    } catch {}
+  };
+
+  const handleDetectedBarcode = (code: string, explicitMode?: "REFILL" | "CHECKOUT") => {
+    const activeMode = explicitMode || scanMode;
+    playTone(900, "sine", 0.2);
+    const item = skus.find(s => s.barcode === code || s.id === code);
+
+    if (item) {
+      if (activeMode === "REFILL") {
+        // MODE 1: REFILL SHELF LOT
+        playTone(980, "sine", 0.25);
+        setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: s.capacity } : s));
+        triggerNtfyAlert("SHELF LOT REFILLED", `Refill verified for ${item.name} (${item.slot}). Stock restored to ${item.capacity} units.`);
+        setActivities(a => [{ text: `📦 Lot Refilled: ${item.name} restored to ${item.capacity}`, time: "Just now" }, ...a.slice(0, 6)]);
+        notify(`✅ [REFILLED]: ${item.name} capacity restored! Manager notified.`);
+      } else {
+        // MODE 2: PRODUCT SOLD OUT CHECKOUT
+        playTone(850, "sine", 0.15);
+        setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
+        setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: Math.max(0, s.stock - 1) } : s));
+
+        const remaining = item.stock - 1;
+        setActivities(a => [{ text: `💳 Sold & Added to Bill: ${item.name} (Left: ${remaining})`, time: "Just now" }, ...a.slice(0, 6)]);
+        notify(`✅ [SOLD]: Added ${item.name} to bill. Remaining stock: ${remaining}`);
+
+        if (remaining / item.capacity < 0.7) {
+          setTimeout(() => {
+            triggerNtfyAlert("LOW STOCK AUTO-TRIGGER", `${item.name} dropped to ${remaining} units (<70%).`);
+          }, 600);
+        }
+      }
+      setTimeout(() => closeScannerModal(), 700);
+    } else {
+      playTone(250, "square", 0.2);
+      notify(`⚠️ Scanned Barcode: ${code} (Not registered in SKUs)`);
     }
   };
 
@@ -882,7 +902,7 @@ export default function ARISMasterOS() {
             </button>
           </div>
 
-          {/* DUAL-MODE BARCODE TRIGGER CONTROLS */}
+          {/* DUAL-MODE TRIGGER CONTROLS */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <input
@@ -910,7 +930,7 @@ export default function ARISMasterOS() {
               </button>
             </div>
 
-            {/* SCANNER MODAL TRIGGER BUTTONS */}
+            {/* TWO CORE MODAL TRIGGER BUTTONS */}
             <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
               <button
                 onClick={() => startScannerModal("REFILL")}
@@ -1002,11 +1022,12 @@ export default function ARISMasterOS() {
         </div>
       )}
 
-      {/* ================= LIVE BARCODE SCANNER VIEWFINDER MODAL ================= */}
+      {/* ================= FIXED NON-OVERLAPPING SCANNER VIEWFINDER MODAL ================= */}
       {scannerOpen && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl p-6 space-y-4 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
             
+            {/* Header */}
             <div className="flex justify-between items-center pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${scanMode === "REFILL" ? "bg-amber-500" : "bg-emerald-500"} animate-ping`} />
@@ -1015,41 +1036,60 @@ export default function ARISMasterOS() {
                 </h3>
               </div>
               <button 
-                onClick={() => setScannerOpen(false)} 
-                className="text-slate-400 hover:text-white px-2.5 py-1 rounded-xl bg-slate-800 text-xs font-bold"
+                onClick={closeScannerModal} 
+                className="text-slate-400 hover:text-white px-3 py-1 rounded-xl bg-slate-800 text-xs font-bold transition"
               >
-                ✕ Cancel
+                ✕ Close
               </button>
             </div>
 
-            {/* Targeting Viewfinder with Laser Aim */}
-            <div className="aspect-video w-full bg-black rounded-2xl overflow-hidden relative border-2 border-indigo-500/50 flex items-center justify-center shadow-inner">
-              {dwellStreamBlob ? (
-                <img src={dwellStreamBlob} alt="Live Scanner Feed" className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex flex-col items-center justify-center space-y-2 text-center">
-                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs font-mono text-slate-400">Connecting Camera Viewfinder...</span>
-                </div>
-              )}
+            {/* Viewfinder Window (Fixed height prevents UI collapse) */}
+            <div className="w-full h-64 bg-black rounded-2xl overflow-hidden relative border-2 border-indigo-500/60 flex items-center justify-center shadow-inner">
+              <video 
+                ref={videoRef} 
+                className="w-full h-full object-cover" 
+                autoPlay 
+                playsInline 
+                muted 
+              />
 
-              {/* Laser Grid Overlay */}
+              {/* Laser Aiming Frame */}
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                <div className="w-52 h-32 border-2 border-dashed border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(52,211,153,0.4)]">
-                  <div className="w-full h-0.5 bg-rose-500 absolute top-1/2 -translate-y-1/2 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                <div className="w-56 h-32 border-2 border-dashed border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(52,211,153,0.5)]">
+                  <div className="w-full h-0.5 bg-rose-500 absolute top-1/2 -translate-y-1/2 animate-pulse shadow-[0_0_10px_rgba(244,63,94,1)]" />
                 </div>
-                <span className="text-[10px] font-mono text-emerald-300 mt-3 bg-black/80 px-2.5 py-1 rounded-full border border-emerald-500/40">
+                <span className="text-[10px] font-mono text-emerald-300 mt-3 bg-black/85 px-3 py-1 rounded-full border border-emerald-500/40">
                   Align product barcode inside red laser
                 </span>
               </div>
             </div>
 
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center">
-              <p className="text-xs text-slate-300">
-                {scanMode === "REFILL" 
-                  ? "Scanning lot will instantly refill shelf capacity to 100% and notify the manager."
-                  : "Scanning product will deduct 1 unit from stock and add directly to billing cart."}
-              </p>
+            {/* Quick Test SKU Simulation Triggers */}
+            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2">
+              <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold text-center">
+                Quick Test SKU Triggers (Click to simulate instant scan):
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  onClick={() => handleDetectedBarcode("8901491101837")}
+                  className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-200 font-bold text-[11px] truncate"
+                >
+                  🍪 Lays Chips (Shelf C-04)
+                </button>
+                <button
+                  onClick={() => handleDetectedBarcode("8905650133059")}
+                  className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-indigo-500 text-slate-200 font-bold text-[11px] truncate"
+                >
+                  ⌚ boAt Watch (Shelf A-01)
+                </button>
+              </div>
+            </div>
+
+            {/* Mode Instructions */}
+            <div className="text-center text-[11px] text-slate-400">
+              {scanMode === "REFILL" 
+                ? "Lot will refill to full 100% capacity and push alert to Manager's lock-screen."
+                : "Product will deduct 1 unit from shelf inventory and add directly to bill."}
             </div>
 
           </div>
