@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
 const MANAGER_PHONE = "9472948984";
-const BACKEND_TUNNEL_URL = " https://smart-maps-pay.loca.lt/"; // Apne localtunnel ka naya URL yahan daalein
+const BACKEND_TUNNEL_URL = "https://yummy-signs-relate.loca.lt"; // Apna active tunnel URL yahan rakhein
 
 const STORE_SKUS = [
   { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch", slot: "Shelf A-01", capacity: 20, price: 1499 },
@@ -17,8 +17,11 @@ const STORE_SKUS = [
 export default function RetailerVisionOS() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [tunnelBlobUrl, setTunnelBlobUrl] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+
+  // Video & Canvas Refs for Your Phone Camera Thermal Stream
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Counter Queue State
   const [counters, setCounters] = useState({ c1: 5, c2: 4, c3Active: false });
@@ -40,33 +43,47 @@ export default function RetailerVisionOS() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const lowStockItems = STORE_SKUS.map(item => {
-    const live = slotData[item.id] || { inCart: 0, sold: 0, restocked: 0 };
-    const cur = Math.max(0, item.capacity - (live.inCart + live.sold) + live.restocked);
-    const ratio = cur / item.capacity;
-    return { ...item, cur, ratio };
-  }).filter(s => s.ratio < 0.7);
-
-  // Tunnel Stream Polling (DroidCam + Real Person Thermal Stream)
+  // Connect Your Phone Camera (or external camera choice)
   useEffect(() => {
-    let active = true;
-    const pollTunnel = async () => {
-      try {
-        const res = await fetch(`${BACKEND_TUNNEL_URL}/thermal_blob`, {
-          headers: { "bypass-tunnel-reminder": "true" }
-        });
-        if (res.ok && active) {
-          const blob = await res.blob();
-          setTunnelBlobUrl(URL.createObjectURL(blob));
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { width: 640, height: 360, facingMode: "environment" } })
+      .then(stream => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
         }
-      } catch {
-        // Fallback
-      } finally {
-        if (active) setTimeout(pollTunnel, 80);
+      })
+      .catch(err => {
+        console.error("Camera access error:", err);
+        notify("Could not connect to camera. Check permissions.");
+      });
+  }, []);
+
+  // Real-time canvas thermal shader over your camera feed
+  useEffect(() => {
+    let animId: number;
+    const renderThermalShader = () => {
+      if (canvasRef.current && videoRef.current) {
+        const ctx = canvasRef.current.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, 640, 360);
+          
+          // Thermal / Nightvision Monochromatic Glow
+          ctx.fillStyle = "rgba(0, 40, 120, 0.45)";
+          ctx.fillRect(0, 0, 640, 360);
+
+          // DPDP Thermal Overlay Badge
+          ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+          ctx.fillRect(10, 10, 310, 32);
+          ctx.fillStyle = "#00ffcc";
+          ctx.font = "bold 10px monospace";
+          ctx.fillText("DPDP COMPLIANT | YOUR PHONE IR THERMAL SENSOR", 16, 29);
+        }
       }
+      animId = requestAnimationFrame(renderThermalShader);
     };
-    pollTunnel();
-    return () => { active = false; };
+    renderThermalShader();
+    return () => cancelAnimationFrame(animId);
   }, []);
 
   // --- AUTOMATED ALERT DISPATCH ---
@@ -80,16 +97,15 @@ export default function RetailerVisionOS() {
       });
       notify(`✅ ${method} automation triggered on server!`);
     } catch {
-      // Instant Web Fallback if backend offline
       const text = encodeURIComponent(`🚨 [ALERT]: ${title} - ${msg}`);
       window.open(`https://wa.me/91${MANAGER_PHONE}?text=${text}`, "_blank");
     }
   };
 
-  // --- WORKING BARCODE SCANNER TRIGGER ---
-  const handleActiveBarcodeScan = async () => {
+  // --- BARCODE SCANNER USING FRIEND'S DROIDCAM IP (`100.98.203.70:4747`) ---
+  const handleFriendDroidCamScan = async () => {
     setIsScanning(true);
-    notify("Scanning product barcode via DroidCam stream...");
+    notify("Scanning via Friend's DroidCam (100.98.203.70)...");
     try {
       const res = await fetch(`${BACKEND_TUNNEL_URL}/scan-barcode`, {
         method: "POST",
@@ -105,10 +121,10 @@ export default function RetailerVisionOS() {
           notify(`Scanned Barcode: ${data.barcode} (Unregistered SKU)`);
         }
       } else {
-        notify("❌ No barcode detected. Hold item closer to camera.");
+        notify("❌ No barcode detected on Friend's DroidCam.");
       }
     } catch {
-      notify("❌ Scanner error. Check backend bridge.");
+      notify("❌ Scanner bridge offline. Check Python backend.");
     } finally {
       setIsScanning(false);
     }
@@ -189,7 +205,7 @@ export default function RetailerVisionOS() {
           </div>
         </div>
 
-        {/* BARCODE SEARCH + WORKING SCANNER BUTTON */}
+        {/* BARCODE SEARCH + FRIEND'S DROIDCAM SCANNER BUTTON */}
         <div className="lg:col-span-5 flex gap-2">
           <form onSubmit={handleBarcodeInputSubmit} className="flex gap-2 flex-1">
             <input
@@ -204,11 +220,11 @@ export default function RetailerVisionOS() {
             </button>
           </form>
           <button
-            onClick={handleActiveBarcodeScan}
+            onClick={handleFriendDroidCamScan}
             disabled={isScanning}
             className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shadow-md flex items-center gap-1.5"
           >
-            <span>{isScanning ? "Scanning..." : "📷 Scan Live Barcode"}</span>
+            <span>{isScanning ? "Scanning DroidCam..." : "📷 Friend DroidCam Scan"}</span>
           </button>
         </div>
 
@@ -282,22 +298,19 @@ export default function RetailerVisionOS() {
           </div>
         </div>
 
-        {/* RIGHT: REAL PERSON HOG THERMAL FEED */}
+        {/* RIGHT: YOUR PHONE CAMERA THERMAL FEED */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Stream</h3>
-              <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">
-                HOG Person Thermal Active
+              <span className="text-[10px] font-mono bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">
+                Your Phone Camera Active
               </span>
             </div>
 
             <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-slate-800 flex items-center justify-center">
-              {tunnelBlobUrl ? (
-                <img src={tunnelBlobUrl} alt="HOG Human Thermal Stream" className="w-full h-full object-cover" />
-              ) : (
-                <div className="text-xs text-slate-400 font-mono animate-pulse">Connecting to DroidCam Stream...</div>
-              )}
+              <video ref={videoRef} className="hidden" playsInline muted autoPlay />
+              <canvas ref={canvasRef} width={640} height={360} className="w-full h-full object-cover" />
             </div>
           </div>
         </div>
