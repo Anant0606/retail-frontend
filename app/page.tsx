@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 const MANAGER_PHONE = "9472948984";
 const BACKEND_TUNNEL_URL = "https://yummy-signs-relate.loca.lt"; // Apna active tunnel URL yahan rakhein
@@ -17,11 +17,8 @@ const STORE_SKUS = [
 export default function RetailerVisionOS() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [tunnelBlobUrl, setTunnelBlobUrl] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-
-  // Video & Canvas Refs for Your Phone Camera Thermal Stream
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Counter Queue State
   const [counters, setCounters] = useState({ c1: 5, c2: 4, c3Active: false });
@@ -43,47 +40,33 @@ export default function RetailerVisionOS() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Connect Your Phone Camera (or external camera choice)
-  useEffect(() => {
-    navigator.mediaDevices
-      ?.getUserMedia({ video: { width: 640, height: 360, facingMode: "environment" } })
-      .then(stream => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-      })
-      .catch(err => {
-        console.error("Camera access error:", err);
-        notify("Could not connect to camera. Check permissions.");
-      });
-  }, []);
+  const lowStockItems = STORE_SKUS.map(item => {
+    const live = slotData[item.id] || { inCart: 0, sold: 0, restocked: 0 };
+    const cur = Math.max(0, item.capacity - (live.inCart + live.sold) + live.restocked);
+    const ratio = cur / item.capacity;
+    return { ...item, cur, ratio };
+  }).filter(s => s.ratio < 0.7);
 
-  // Real-time canvas thermal shader over your camera feed
+  // Poll Tunnel Stream for Your Phone's Thermal View
   useEffect(() => {
-    let animId: number;
-    const renderThermalShader = () => {
-      if (canvasRef.current && videoRef.current) {
-        const ctx = canvasRef.current.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, 640, 360);
-          
-          // Thermal / Nightvision Monochromatic Glow
-          ctx.fillStyle = "rgba(0, 40, 120, 0.45)";
-          ctx.fillRect(0, 0, 640, 360);
-
-          // DPDP Thermal Overlay Badge
-          ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-          ctx.fillRect(10, 10, 310, 32);
-          ctx.fillStyle = "#00ffcc";
-          ctx.font = "bold 10px monospace";
-          ctx.fillText("DPDP COMPLIANT | YOUR PHONE IR THERMAL SENSOR", 16, 29);
+    let active = true;
+    const pollTunnel = async () => {
+      try {
+        const res = await fetch(`${BACKEND_TUNNEL_URL}/thermal_blob`, {
+          headers: { "bypass-tunnel-reminder": "true" }
+        });
+        if (res.ok && active) {
+          const blob = await res.blob();
+          setTunnelBlobUrl(URL.createObjectURL(blob));
         }
+      } catch {
+        // Fallback
+      } finally {
+        if (active) setTimeout(pollTunnel, 80);
       }
-      animId = requestAnimationFrame(renderThermalShader);
     };
-    renderThermalShader();
-    return () => cancelAnimationFrame(animId);
+    pollTunnel();
+    return () => { active = false; };
   }, []);
 
   // --- AUTOMATED ALERT DISPATCH ---
@@ -298,19 +281,22 @@ export default function RetailerVisionOS() {
           </div>
         </div>
 
-        {/* RIGHT: YOUR PHONE CAMERA THERMAL FEED */}
+        {/* RIGHT: YOUR PHONE CAMERA THERMAL STREAM VIA BACKEND */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Stream</h3>
-              <span className="text-[10px] font-mono bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">
-                Your Phone Camera Active
+              <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">
+                Your Phone Thermal Active
               </span>
             </div>
 
             <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-slate-800 flex items-center justify-center">
-              <video ref={videoRef} className="hidden" playsInline muted autoPlay />
-              <canvas ref={canvasRef} width={640} height={360} className="w-full h-full object-cover" />
+              {tunnelBlobUrl ? (
+                <img src={tunnelBlobUrl} alt="Your Phone Thermal Stream" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-xs text-slate-400 font-mono animate-pulse">Connecting to your phone camera stream...</div>
+              )}
             </div>
           </div>
         </div>
