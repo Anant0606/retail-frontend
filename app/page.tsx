@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
 // Apne active localtunnel URL ko yahan verify karein (without trailing slash)
-const BACKEND_TUNNEL_URL = "https://puny-lands-flow.loca.lt";
+const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt";
 
 interface RetailItem {
   id: string;
