@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 const MANAGER_PHONE = "9472948984";
@@ -54,12 +54,15 @@ export default function ARISMasterOS() {
   const [scanMode, setScanMode] = useState<"REFILL" | "CHECKOUT">("CHECKOUT");
   const [isScanning, setIsScanning] = useState(false);
 
-  const [footfall, setFootfall] = useState({ in: 86, out: 54 });
+  // Dynamic Logical Footfall State
+  const [footfall, setFootfall] = useState({ in: 94, out: 62 });
   const [lastEvent, setLastEvent] = useState<"IN" | "OUT" | null>(null);
   const activeInStore = Math.max(0, footfall.in - footfall.out);
 
-  const [counters, setCounters] = useState({ c1: 5, c2: 4, c3Active: false });
-  const isRushAlert = counters.c1 >= 4 && counters.c2 >= 4 && !counters.c3Active;
+  // Dynamic Live Counters State
+  const [counters, setCounters] = useState({ c1: 3, c2: 4, c3Active: false });
+  const lastAlertTimestamp = useRef<number>(0);
+  const isQueueCritical = counters.c1 > 5 || counters.c2 > 5;
 
   const [skus, setSkus] = useState<SKUItem[]>(MASTER_SKUS);
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -76,8 +79,8 @@ export default function ARISMasterOS() {
   });
 
   const [activities, setActivities] = useState([
-    { text: "Camera Vision Engine: Live human tracking engaged", time: "Just now" },
-    { text: "Dual-Mode Barcode Scanner Ready (Phone DroidCam Link)", time: "1m ago" },
+    { text: "Camera Vision Engine: Optical Gate tracking engaged", time: "Just now" },
+    { text: "Counter queue surveillance active (Auto-threshold: 5 persons)", time: "1m ago" },
     { text: "FIFO Depletion monitor: Critical items listed below 70%", time: "3m ago" },
   ]);
 
@@ -106,28 +109,77 @@ export default function ARISMasterOS() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // 1. Natural In/Out Footfall Fluctuations
   useEffect(() => {
-    const timer = setInterval(() => {
+    const footfallTimer = setInterval(() => {
       setFootfall(prev => {
         const rand = Math.random();
-        if (rand > 0.55) {
+        if (rand > 0.40) {
           const nextIn = prev.in + 1;
           setLastEvent("IN");
-          setActivities(a => [{ text: `🟢 Shopper Entered via Entrance Gate (Total In: ${nextIn})`, time: "Just now" }, ...a.slice(0, 6)]);
+          setActivities(a => [
+            { text: `🟢 Optical In Gate: Visitor #${nextIn} entered floor`, time: "Just now" },
+            ...a.slice(0, 6)
+          ]);
           return { ...prev, in: nextIn };
-        } else if (rand < 0.35 && (prev.in - prev.out) > 4) {
+        } else if (rand < 0.35 && (prev.in - prev.out) > 5) {
           const nextOut = prev.out + 1;
           setLastEvent("OUT");
-          setActivities(a => [{ text: `🔴 Shopper Checkout Exit Complete (Total Out: ${nextOut})`, time: "Just now" }, ...a.slice(0, 6)]);
+          setActivities(a => [
+            { text: `🔴 Checkout Exit: Shopper #${nextOut} cleared gates`, time: "Just now" },
+            ...a.slice(0, 6)
+          ]);
           return { ...prev, out: nextOut };
         }
         return prev;
       });
-      setTimeout(() => setLastEvent(null), 1200);
-    }, 3800);
-    return () => clearInterval(timer);
+      setTimeout(() => setLastEvent(null), 1100);
+    }, 2800);
+
+    return () => clearInterval(footfallTimer);
   }, []);
 
+  // 2. Dynamic Live Queue Balancing (>5 Alert Engine)
+  useEffect(() => {
+    const queueTimer = setInterval(() => {
+      setCounters(prev => {
+        const deltaC1 = Math.random() > 0.45 ? 1 : -1;
+        const deltaC2 = Math.random() > 0.50 ? 1 : -1;
+        const serviceRate = prev.c3Active ? 2 : 1;
+
+        let nextC1 = Math.max(1, prev.c1 + (deltaC1 > 0 ? 1 : -serviceRate));
+        let nextC2 = Math.max(1, prev.c2 + (deltaC2 > 0 ? 1 : -serviceRate));
+
+        if (Math.random() > 0.70 && !prev.c3Active) {
+          if (Math.random() > 0.5) nextC1 = Math.min(8, nextC1 + 2);
+          else nextC2 = Math.min(8, nextC2 + 2);
+        }
+
+        const criticalNow = nextC1 > 5 || nextC2 > 5;
+        const now = Date.now();
+
+        if (criticalNow && !prev.c3Active && now - lastAlertTimestamp.current > 25000) {
+          lastAlertTimestamp.current = now;
+          playTone(300, "sawtooth", 0.4);
+          setTimeout(() => playTone(220, "sawtooth", 0.45), 200);
+
+          const alertMsg = `Counter queue exceeded safe limit of 5 persons! [C1: ${nextC1} in line, C2: ${nextC2} in line]. Deploy Counter 3 immediately!`;
+          triggerNtfyAlert("AUTOMATED QUEUE CONGESTION ALERT (>5)", alertMsg);
+
+          setActivities(a => [
+            { text: `🚨 Auto-Alert Fired: Counter line exceeded threshold (>5 in line)`, time: "Just now" },
+            ...a.slice(0, 6)
+          ]);
+        }
+
+        return { ...prev, c1: nextC1, c2: nextC2 };
+      });
+    }, 3200);
+
+    return () => clearInterval(queueTimer);
+  }, []);
+
+  // Poll Insights from Python Backend
   useEffect(() => {
     let active = true;
     const interval = setInterval(async () => {
@@ -144,6 +196,7 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
+  // Fetch Thermal Image Stream
   useEffect(() => {
     let active = true;
     const fetchStreamFrame = async () => {
@@ -206,6 +259,7 @@ export default function ARISMasterOS() {
     }
   };
 
+  // Barcode Scanner Modal Workflow
   const startScannerModal = async (mode: "REFILL" | "CHECKOUT") => {
     setScanMode(mode);
     setScannerOpen(true);
@@ -244,7 +298,7 @@ export default function ARISMasterOS() {
         setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: s.capacity } : s));
         triggerNtfyAlert("SHELF LOT REFILLED", `Refill verified for ${item.name} (${item.slot}). Stock restored to ${item.capacity} units.`);
         setActivities(a => [{ text: `📦 Lot Refilled: ${item.name} restored to ${item.capacity}`, time: "Just now" }, ...a.slice(0, 6)]);
-        notify(`✅ [REFILLED]: ${item.name} restored to full capacity!`);
+        notify(`✅ [REFILLED]: ${item.name} capacity restored! Manager notified.`);
       } else {
         playTone(850, "sine", 0.15);
         setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
@@ -284,7 +338,7 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
-  // --- DIRECT FILE DOWNLOAD + NATIVE PRINT TO PDF ENGINE ---
+  // File Save + Print to PDF Engine
   const saveInvoiceAsPDF = () => {
     const totalAmount = Object.entries(cart).reduce((acc, [id, qty]) => {
       const item = skus.find(s => s.id === id);
@@ -389,7 +443,6 @@ export default function ARISMasterOS() {
 </body>
 </html>`;
 
-    // 1. Instant Direct File Save
     try {
       const blob = new Blob([fullInvoiceHtml], { type: "text/html" });
       const downloadUrl = URL.createObjectURL(blob);
@@ -402,7 +455,6 @@ export default function ARISMasterOS() {
       URL.revokeObjectURL(downloadUrl);
     } catch {}
 
-    // 2. Hidden Iframe Native Print / Save Dialog
     const hiddenIframe = document.createElement("iframe");
     hiddenIframe.style.position = "fixed";
     hiddenIframe.style.bottom = "0";
@@ -497,7 +549,7 @@ export default function ARISMasterOS() {
         </div>
       )}
 
-      {/* ================= 1. DIRECT PORTAL HAMBURGER DRAWER (ZERO BLEED / ZERO OVERLAP) ================= */}
+      {/* 1. DIRECT BODY PORTAL HAMBURGER DRAWER */}
       {mounted && menuOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex">
           <div 
@@ -570,7 +622,7 @@ export default function ARISMasterOS() {
         document.body
       )}
 
-      {/* ================= 2. DIRECT PORTAL BARCODE SCANNER (NO COLLAPSE / NO SQUEEZE) ================= */}
+      {/* 2. DIRECT BODY PORTAL BARCODE SCANNER */}
       {mounted && scannerOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div 
@@ -598,7 +650,6 @@ export default function ARISMasterOS() {
               </button>
             </div>
 
-            {/* Viewfinder: Explicit Min-Height 260px */}
             <div className="w-full min-h-[260px] h-[260px] bg-black rounded-2xl overflow-hidden relative border-2 border-indigo-500/60 flex items-center justify-center flex-shrink-0 shadow-inner">
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                 <div className="w-56 h-32 border-2 border-dashed border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(52,211,153,0.6)]">
@@ -686,23 +737,29 @@ export default function ARISMasterOS() {
       {activeView === "home" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            
+            {/* LIVE FOOTFALL (DYNAMIC CONSERVATION LAW) */}
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
-              <div className={`bg-[#0f172a] border ${lastEvent === "IN" ? "border-emerald-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
+              <div className={`bg-[#0f172a] border ${lastEvent === "IN" ? "border-emerald-400 scale-[1.02] shadow-[0_0_15px_rgba(52,211,153,0.3)]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                   Cam In
                 </span>
                 <span className="text-2xl lg:text-3xl font-black text-white">{footfall.in}</span>
-                <span className="text-[9px] text-slate-400 font-mono block">Optical Gate</span>
+                <span className="text-[9px] text-slate-400 font-mono block">
+                  {lastEvent === "IN" ? <span className="text-emerald-300 font-bold">+1 Arrival</span> : "Optical In Gate"}
+                </span>
               </div>
 
-              <div className={`bg-[#0f172a] border ${lastEvent === "OUT" ? "border-rose-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
+              <div className={`bg-[#0f172a] border ${lastEvent === "OUT" ? "border-rose-400 scale-[1.02] shadow-[0_0_15px_rgba(244,63,94,0.3)]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-rose-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
                   Exit Out
                 </span>
                 <span className="text-2xl lg:text-3xl font-black text-white">{footfall.out}</span>
-                <span className="text-[9px] text-slate-400 font-mono block">Checkout Gate</span>
+                <span className="text-[9px] text-slate-400 font-mono block">
+                  {lastEvent === "OUT" ? <span className="text-rose-300 font-bold">+1 Departure</span> : "Checkout Gate"}
+                </span>
               </div>
 
               <div className="bg-[#0f172a] border border-indigo-900/60 p-3 rounded-2xl text-center relative overflow-hidden">
@@ -712,34 +769,51 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
+            {/* LIVE QUEUE COUNTERS WITH AUTOMATED LIMIT > 5 ALERT */}
             <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3">
               <div className="flex justify-between items-center">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue Monitoring & Alerts</h3>
-                {isRushAlert && (
-                  <span className="text-[10px] bg-rose-950 border border-rose-600 text-rose-400 px-2 py-0.5 rounded font-bold animate-pulse">
-                    Rush Alert: Counters Congested
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <span>Counter Queue Monitoring & Alerts</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-400 font-normal">
+                    Auto-Limit: &gt;5 in line
+                  </span>
+                </h3>
+
+                {isQueueCritical && (
+                  <span className="text-[10px] bg-rose-950 border border-rose-600 text-rose-300 px-2 py-0.5 rounded font-bold animate-pulse shadow-sm">
+                    ⚠️ Congestion Limit Exceeded (&gt;5)
                   </span>
                 )}
               </div>
 
               <div className="grid grid-cols-3 gap-2.5 items-center">
-                <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                <div className={`p-2.5 rounded-xl border transition-all ${counters.c1 > 5 ? "bg-rose-950/40 border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.3)]" : "bg-slate-900 border-slate-800"} space-y-1`}>
                   <div className="flex justify-between text-[10px]">
                     <span className="text-slate-400 font-bold">Counter 1</span>
-                    <span className="text-white font-mono font-bold">{counters.c1} in Line</span>
+                    <span className={`font-mono font-bold ${counters.c1 > 5 ? "text-rose-400" : "text-white"}`}>
+                      {counters.c1} in Line
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-rose-500 h-full rounded-full" style={{ width: `${Math.min(100, counters.c1 * 20)}%` }} />
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${counters.c1 > 5 ? "bg-rose-500" : "bg-indigo-500"}`} 
+                      style={{ width: `${Math.min(100, counters.c1 * 14.2)}%` }} 
+                    />
                   </div>
                 </div>
 
-                <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                <div className={`p-2.5 rounded-xl border transition-all ${counters.c2 > 5 ? "bg-rose-950/40 border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.3)]" : "bg-slate-900 border-slate-800"} space-y-1`}>
                   <div className="flex justify-between text-[10px]">
                     <span className="text-slate-400 font-bold">Counter 2</span>
-                    <span className="text-white font-mono font-bold">{counters.c2} in Line</span>
+                    <span className={`font-mono font-bold ${counters.c2 > 5 ? "text-rose-400" : "text-white"}`}>
+                      {counters.c2} in Line
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, counters.c2 * 20)}%` }} />
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${counters.c2 > 5 ? "bg-rose-500" : "bg-amber-500"}`} 
+                      style={{ width: `${Math.min(100, counters.c2 * 14.2)}%` }} 
+                    />
                   </div>
                 </div>
 
@@ -761,8 +835,8 @@ export default function ARISMasterOS() {
               <div className="flex justify-end pt-2 border-t border-slate-800/80">
                 <button
                   onClick={() => triggerNtfyAlert(
-                    "COUNTER QUEUE CONGESTION",
-                    `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3 immediately!`
+                    "MANUAL COUNTER RUSH DISPATCH",
+                    `Manual Override: Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3 immediately!`
                   )}
                   className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-1.5 active:scale-95"
                 >
