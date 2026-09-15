@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
-const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt"; // Active localtunnel link
+const BACKEND_TUNNEL_URL = "https://puny-lands-flow.loca.lt"; // Active localtunnel link
 
 interface SKUItem {
   id: string;
@@ -40,13 +40,14 @@ const MASTER_SKUS: SKUItem[] = [
   }))
 ];
 
-export default function ARISCleanDashboard() {
+export default function ARISMasterOS() {
   const [activeView, setActiveView] = useState<"home" | "stock" | "dwell" | "billing">("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Dynamic Camera Footfall (Variable live simulation)
-  const [footfall, setFootfall] = useState({ in: 84, out: 53 });
+  // Variable Footfall State
+  const [footfall, setFootfall] = useState({ in: 86, out: 54 });
+  const [lastEvent, setLastEvent] = useState<"IN" | "OUT" | null>(null);
   const activeInStore = Math.max(0, footfall.in - footfall.out);
 
   // Counter Queue Status
@@ -66,17 +67,17 @@ export default function ARISCleanDashboard() {
     zone: "Scanning Aisle...",
     active_sku: "None",
     intent_state: "Browsing",
-    psychology_insight: "Real-time edge camera tracking shopper flow...",
+    psychology_insight: "Live camera analyzing aisle movement...",
   });
 
-  // Live Store Activity Log
+  // Live Activity Log
   const [activities, setActivities] = useState([
     { text: "Camera Vision Engine: Live human tracking engaged", time: "Just now", type: "success" },
     { text: "Counter 1 & 2 Congestion threshold exceeded", time: "1m ago", type: "warn" },
     { text: "FIFO Depletion monitor: 34 SKUs dropped below 70%", time: "3m ago", type: "alert" },
   ]);
 
-  // Web Audio Context Synthesizer (No external MP3 files needed)
+  // Web Audio Context Synthesizer (Instant buzzer/beep)
   const playTone = (freq = 880, type: OscillatorType = "sine", duration = 0.15) => {
     try {
       const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -90,43 +91,46 @@ export default function ARISCleanDashboard() {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + duration);
-    } catch {
-      // Audio fallback
-    }
-  };
-
-  const playBuzzerAlert = () => {
-    playTone(320, "sawtooth", 0.35);
-    setTimeout(() => playTone(240, "sawtooth", 0.4), 200);
+    } catch {}
   };
 
   const notify = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3500);
+    setTimeout(() => setToast(null), 3200);
   };
 
-  // Live Footfall & Counter Real-Time Fluctuation Simulator
+  // Continuous Variable Footfall Simulator
   useEffect(() => {
-    const footfallTimer = setInterval(() => {
+    const timer = setInterval(() => {
       setFootfall(prev => {
         const rand = Math.random();
-        if (rand > 0.65) {
-          const newIn = prev.in + 1;
-          setActivities(a => [{ text: `Shopper Entrance Detected (Cam In: #${newIn})`, time: "Just now", type: "success" }, ...a.slice(0, 7)]);
-          return { ...prev, in: newIn };
-        } else if (rand < 0.25 && (prev.in - prev.out) > 3) {
-          const newOut = prev.out + 1;
-          setActivities(a => [{ text: `Shopper Checkout Exit Verified (Cam Out: #${newOut})`, time: "Just now", type: "info" }, ...a.slice(0, 7)]);
-          return { ...prev, out: newOut };
+        if (rand > 0.55) {
+          const nextIn = prev.in + 1;
+          setLastEvent("IN");
+          setActivities(a => [
+            { text: `🟢 Vision Event: Person Entered via Gate A (Total In: ${nextIn})`, time: "Just now", type: "success" },
+            ...a.slice(0, 6)
+          ]);
+          return { ...prev, in: nextIn };
+        } else if (rand < 0.35 && (prev.in - prev.out) > 4) {
+          const nextOut = prev.out + 1;
+          setLastEvent("OUT");
+          setActivities(a => [
+            { text: `🔴 Gate Sensor: Shopper Exited Counter Line (Total Out: ${nextOut})`, time: "Just now", type: "info" },
+            ...a.slice(0, 6)
+          ]);
+          return { ...prev, out: nextOut };
         }
         return prev;
       });
-    }, 4500);
 
-    return () => clearInterval(footfallTimer);
+      setTimeout(() => setLastEvent(null), 1200);
+    }, 3800);
+
+    return () => clearInterval(timer);
   }, []);
 
-  // Poll Psychological Stream
+  // Poll Backend Psychological Stream
   useEffect(() => {
     let active = true;
     const interval = setInterval(async () => {
@@ -138,26 +142,61 @@ export default function ARISCleanDashboard() {
           const data = await res.json();
           setInsights(data);
         }
-      } catch {
-        // Silent reconnect
-      }
+      } catch {}
     }, 400);
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // ntfy Push Alert Engine
+  // --- FIXED NTFY PUSH ENGINE (NO PREFLIGHT CORS ERROR + BACKEND FALLBACK) ---
   const triggerNtfyAlert = async (title: string, msg: string) => {
-    playBuzzerAlert();
+    playTone(320, "sawtooth", 0.3);
+    setTimeout(() => playTone(240, "sawtooth", 0.35), 180);
     notify(`Pushing alert to phone (${NTFY_TOPIC})...`);
+
+    let sent = false;
+
+    // 1. URL Query Parameters Method (Bypasses Browser CORS Options Preflight)
     try {
-      await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+      const encodedTitle = encodeURIComponent(`🚨 ${title}`);
+      const ntfyUrl = `https://ntfy.sh/${NTFY_TOPIC}?title=${encodedTitle}&priority=urgent&tags=warning,rotating_light`;
+
+      const response = await fetch(ntfyUrl, {
         method: "POST",
         body: msg,
-        headers: { "Title": `🚨 ${title}`, "Priority": "urgent", "Tags": "warning,rotating_light" }
       });
-      notify("🔔 Alert pushed to Manager's Phone!");
-    } catch {
-      notify("Push error. Check connection.");
+
+      if (response.ok) {
+        sent = true;
+        notify("🔔 Notification pushed to Manager's Phone!");
+      }
+    } catch (e) {
+      // Continue to backend fallback
+    }
+
+    // 2. Direct Backend Server-Side Dispatch Fallback (If browser adblocker blocks direct ntfy)
+    if (!sent) {
+      try {
+        const backendRes = await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "bypass-tunnel-reminder": "true"
+          },
+          body: JSON.stringify({
+            title: title,
+            message: msg,
+            priority: "urgent"
+          })
+        });
+
+        if (backendRes.ok) {
+          notify("🔔 Alert sent via server bridge to phone!");
+        } else {
+          notify("❌ Alert dispatch failed on server.");
+        }
+      } catch (err) {
+        notify("❌ Connection error. Check Python tunnel.");
+      }
     }
   };
 
@@ -185,7 +224,7 @@ export default function ARISCleanDashboard() {
         }
       } else {
         playTone(200, "square", 0.2);
-        notify("❌ No barcode detected. Hold closer.");
+        notify("❌ No barcode detected. Hold item closer.");
       }
     } catch {
       notify("❌ Backend bridge offline.");
@@ -212,20 +251,29 @@ export default function ARISCleanDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-3 lg:p-5 space-y-4 relative selection:bg-indigo-600">
       
+      {/* Toast Alert */}
       {toast && (
         <div className="fixed top-5 right-5 z-50 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-2xl animate-bounce border border-indigo-400">
           {toast}
         </div>
       )}
 
-      {/* ================= CLEAN TOP HEADER (NO 1,2,3 BUTTONS HERE) ================= */}
+      {/* Backdrop overlay when Hamburger menu is open */}
+      {menuOpen && (
+        <div 
+          onClick={() => setMenuOpen(false)} 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity"
+        />
+      )}
+
+      {/* ================= TOP CLEAN HEADER BAR ================= */}
       <nav className="bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xl relative z-40">
         
         <div className="flex items-center gap-3">
-          {/* Hamburger 3-Line Menu Button */}
+          {/* Hamburger 3-Line Button */}
           <button
             onClick={() => { playTone(500, "sine", 0.05); setMenuOpen(!menuOpen); }}
-            className="w-10 h-10 rounded-xl bg-slate-950 border border-indigo-500/40 hover:border-indigo-400 flex flex-col items-center justify-center gap-1.5 transition shadow-inner"
+            className="w-10 h-10 rounded-xl bg-slate-950 border border-indigo-500/40 hover:border-indigo-400 flex flex-col items-center justify-center gap-1.5 transition shadow-inner active:scale-95"
             title="Open Menu"
           >
             <span className="w-5 h-0.5 bg-indigo-400 rounded-full" />
@@ -242,7 +290,7 @@ export default function ARISCleanDashboard() {
           </div>
         </div>
 
-        {/* Status Indicator */}
+        {/* Live Vision Active Badge */}
         <div className="flex items-center gap-2">
           <span className="px-3 py-1.5 rounded-xl bg-emerald-950 border border-emerald-700 text-emerald-300 text-[11px] font-mono font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -251,34 +299,64 @@ export default function ARISCleanDashboard() {
         </div>
       </nav>
 
-      {/* ================= HAMBURGER DROPDOWN (ONLY PLACE FOR 1, 2, 3) ================= */}
+      {/* ================= FIXED SOLID SLIDE-OUT / POP OVER MENU ================= */}
       {menuOpen && (
-        <div className="absolute top-16 left-4 z-50 w-72 bg-slate-900 border border-slate-700 rounded-2xl p-3 shadow-2xl space-y-1.5 animate-fadeIn">
-          <div className="text-[10px] font-mono uppercase text-indigo-400 px-2 py-1 font-bold">ARIS Navigation</div>
-          <button 
-            onClick={() => { playTone(600, "sine", 0.05); setActiveView("home"); setMenuOpen(false); }} 
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition ${activeView === "home" ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}
-          >
-            🏠 Main Home Dashboard
-          </button>
-          <button 
-            onClick={() => { playTone(600, "sine", 0.05); setActiveView("stock"); setMenuOpen(false); }} 
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition ${activeView === "stock" ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}
-          >
-            📦 1) Stock Shelf Data (50+ SKUs)
-          </button>
-          <button 
-            onClick={() => { playTone(600, "sine", 0.05); setActiveView("dwell"); setMenuOpen(false); }} 
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition ${activeView === "dwell" ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}
-          >
-            🧠 2) Dwell Time & Psychological Data
-          </button>
-          <button 
-            onClick={() => { playTone(600, "sine", 0.05); setActiveView("billing"); setMenuOpen(false); }} 
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition ${activeView === "billing" ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}
-          >
-            💳 3) Counter Boy Billing & Barcode Workflow
-          </button>
+        <div className="fixed top-16 left-4 z-50 w-80 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl space-y-2 animate-fadeIn ring-2 ring-indigo-500/30">
+          <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+            <span className="text-[11px] font-mono uppercase text-indigo-400 font-bold">ARIS System Modules</span>
+            <button 
+              onClick={() => setMenuOpen(false)} 
+              className="text-slate-400 hover:text-white text-xs px-2 py-0.5 rounded bg-slate-800"
+            >
+              ✕ Close
+            </button>
+          </div>
+
+          <div className="space-y-1.5 pt-1">
+            <button 
+              onClick={() => { playTone(600, "sine", 0.05); setActiveView("home"); setMenuOpen(false); }} 
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "home" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+            >
+              <span className="text-base">🏠</span>
+              <div>
+                <span className="block">Main Home Dashboard</span>
+                <span className="text-[10px] opacity-70 font-normal">Footfall, Counters & FIFO Alerts</span>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => { playTone(600, "sine", 0.05); setActiveView("stock"); setMenuOpen(false); }} 
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "stock" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+            >
+              <span className="text-base">📦</span>
+              <div>
+                <span className="block">1) Stock Shelf Data (50+ SKUs)</span>
+                <span className="text-[10px] opacity-70 font-normal">Live Catalog & &lt;70% Capacity Alerts</span>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => { playTone(600, "sine", 0.05); setActiveView("dwell"); setMenuOpen(false); }} 
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "dwell" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+            >
+              <span className="text-base">🧠</span>
+              <div>
+                <span className="block">2) Dwell Time & Psychology</span>
+                <span className="text-[10px] opacity-70 font-normal">Live Thermal Stream + PDF Export</span>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => { playTone(600, "sine", 0.05); setActiveView("billing"); setMenuOpen(false); }} 
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "billing" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+            >
+              <span className="text-base">💳</span>
+              <div>
+                <span className="block">3) Counter Boy Billing & Barcode</span>
+                <span className="text-[10px] opacity-70 font-normal">Refill / Checkout & Bill Invoice PDF</span>
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
@@ -289,31 +367,40 @@ export default function ARISCleanDashboard() {
           {/* TOP METRICS & COUNTER MONITORING */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* Live Camera Footfall */}
+            {/* Dynamic Footfall Cards */}
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
-              <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-center relative overflow-hidden">
-                <span className="text-[10px] uppercase font-bold text-emerald-400 block flex items-center justify-center gap-1">
+              
+              {/* CAM IN CARD */}
+              <div className={`bg-slate-900 border ${lastEvent === "IN" ? "border-emerald-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
+                <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                   Cam In
                 </span>
                 <span className="text-2xl lg:text-3xl font-black text-white">{footfall.in}</span>
-                <span className="text-[9px] text-slate-500 font-mono block">Real-time Vision</span>
+                <span className="text-[9px] text-slate-400 font-mono block">
+                  {lastEvent === "IN" ? <span className="text-emerald-400 font-bold">+1 Detected</span> : "Live Optical Gate"}
+                </span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-center relative overflow-hidden">
-                <span className="text-[10px] uppercase font-bold text-rose-400 block flex items-center justify-center gap-1">
+              {/* EXIT OUT CARD */}
+              <div className={`bg-slate-900 border ${lastEvent === "OUT" ? "border-rose-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
+                <span className="text-[10px] uppercase font-bold text-rose-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
                   Exit Out
                 </span>
                 <span className="text-2xl lg:text-3xl font-black text-white">{footfall.out}</span>
-                <span className="text-[9px] text-slate-500 font-mono block">Gate Sensor</span>
+                <span className="text-[9px] text-slate-400 font-mono block">
+                  {lastEvent === "OUT" ? <span className="text-rose-400 font-bold">+1 Checked out</span> : "Exit Clearance"}
+                </span>
               </div>
 
+              {/* ACTIVE SHOPPERS */}
               <div className="bg-slate-900 border border-indigo-900/60 p-3 rounded-2xl text-center relative overflow-hidden">
                 <span className="text-[10px] uppercase font-bold text-indigo-300 block">Active Shoppers</span>
                 <span className="text-2xl lg:text-3xl font-black text-indigo-400">{activeInStore}</span>
                 <span className="text-[9px] text-indigo-400/70 font-mono block">In Floor Zone</span>
               </div>
+
             </div>
 
             {/* Counter Queue Section with Dedicated Alert Button */}
@@ -322,12 +409,12 @@ export default function ARISCleanDashboard() {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue Monitoring & Alerts</h3>
                 {isRushAlert && (
                   <span className="text-[10px] bg-rose-950 border border-rose-600 text-rose-400 px-2 py-0.5 rounded font-bold animate-pulse">
-                    Bottleneck Rush (&ge;4 in Queue)
+                    Rush Alert: Counters Congested
                   </span>
                 )}
               </div>
 
-              {/* Improved Queue Load Cards */}
+              {/* Queue Visual Indicators */}
               <div className="grid grid-cols-3 gap-2.5 items-center">
                 <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-1">
                   <div className="flex justify-between text-[10px]">
@@ -366,14 +453,14 @@ export default function ARISCleanDashboard() {
                 </div>
               </div>
 
-              {/* Counter Dedicated Alert Button */}
+              {/* Counter Alert Button */}
               <div className="flex justify-end pt-2 border-t border-slate-800/80">
                 <button
                   onClick={() => triggerNtfyAlert(
                     "COUNTER QUEUE CONGESTION",
                     `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3 immediately!`
                   )}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-1.5 active:scale-95"
                 >
                   <span>🚨 Sound Counter Alert & Notify Manager</span>
                 </button>
@@ -385,13 +472,13 @@ export default function ARISCleanDashboard() {
           {/* LOWER SPLIT: LIVE STORE ACTIVITY & FIFO LOW STOCK ALERT TABLE */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* Live Activity Updation Stream */}
+            {/* Live Activity Stream Table */}
             <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Updation Store Activity</h3>
                 <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  Live Event Stream
+                  Live Event Feed
                 </span>
               </div>
 
@@ -405,7 +492,7 @@ export default function ARISCleanDashboard() {
               </div>
             </div>
 
-            {/* FIFO LOW STOCK ALERT TABLE (<70%) */}
+            {/* FIFO LOW STOCK ALERT TABLE (<70%) WITH ALERT BUZZER */}
             <div className="lg:col-span-5 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center">
@@ -430,7 +517,7 @@ export default function ARISCleanDashboard() {
                           </span>
                         </div>
 
-                        {/* REPLACED "Refilled" WITH REAL ALERT BUZZER BUTTON */}
+                        {/* Alert Buzzer Button */}
                         <button
                           onClick={() => {
                             triggerNtfyAlert(`LOW STOCK: ${item.slot}`, `${item.name} is down to ${item.stock} units (${ratio}%). Dispatch restock lot.`);
@@ -446,12 +533,12 @@ export default function ARISCleanDashboard() {
                 </div>
               </div>
 
-              {/* FIFO Bottom Dedicated Alert Trigger */}
+              {/* FIFO Batch Alert Push */}
               <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
                 <span className="text-[10px] font-mono text-slate-400">FIFO Restock Priority Active</span>
                 <button
                   onClick={() => triggerNtfyAlert("FIFO BATCH RESTOCK DISPATCH", `Critical refill required for ${lowStockItems.length} items below 70% capacity.`)}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow transition"
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow transition active:scale-95"
                 >
                   🔔 Push Bulk FIFO Alerts to Manager
                 </button>
@@ -652,7 +739,6 @@ export default function ARISCleanDashboard() {
             </button>
           </div>
 
-          {/* Barcode & Manual Action Controls */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <input
@@ -765,7 +851,7 @@ export default function ARISCleanDashboard() {
                     notify("📄 Exporting Official Bill Invoice PDF...");
                     setTimeout(() => { notify("✅ Bill PDF Exported!"); setCart({}); }, 1800);
                   }}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center gap-2 active:scale-95"
                 >
                   <span>📥 Checkout & Export Bill PDF</span>
                 </button>
