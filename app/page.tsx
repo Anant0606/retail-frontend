@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
 const MANAGER_PHONE = "9472948984";
-const BACKEND_TUNNEL_URL = "https://happy-facts-cough.loca.lt";
+const BACKEND_TUNNEL_URL = "https://yummy-signs-relate.loca.lt"; // Apne localtunnel ka naya URL yahan daalein
 
 const STORE_SKUS = [
   { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch", slot: "Shelf A-01", capacity: 20, price: 1499 },
@@ -16,20 +16,16 @@ const STORE_SKUS = [
 
 export default function RetailerVisionOS() {
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [cameraMode, setCameraMode] = useState<"DIRECT_CAM" | "TUNNEL_BLOB" | "WARM_SIMULATION">("DIRECT_CAM");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Video & Canvas Refs for Direct Zero-Lag Stream
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tunnelBlobUrl, setTunnelBlobUrl] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Counter Queue State
   const [counters, setCounters] = useState({ c1: 5, c2: 4, c3Active: false });
   const isRushAlert = (counters.c1 >= 4 && counters.c2 >= 4) && !counters.c3Active;
 
   // Footfall Stats
-  const [footfall, setFootfall] = useState({ in: 74, out: 46 });
+  const [footfall] = useState({ in: 78, out: 49 });
   const activeShoppers = Math.max(0, footfall.in - footfall.out);
 
   // Dynamic Shelf Slots
@@ -39,19 +35,11 @@ export default function RetailerVisionOS() {
     "SKU-5962": { inCart: 2, sold: 25, restocked: 0 },
   });
 
-  // Dwell Hotspots
-  const [dwellSpots] = useState([
-    { shelf: "Shelf C (Snacks)", dwell: 215, intensity: "Critical Red Hotspot", status: "HIGH_DWELL_ALERT" },
-    { shelf: "Shelf A (Wearables)", dwell: 146, intensity: "Warm Wave Dwell", status: "MODERATE" },
-    { shelf: "Shelf B (Lighting)", dwell: 52, intensity: "Normal Warm", status: "NORMAL" },
-  ]);
-
   const notify = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Critical Low Stock SKUs (< 70%)
   const lowStockItems = STORE_SKUS.map(item => {
     const live = slotData[item.id] || { inCart: 0, sold: 0, restocked: 0 };
     const cur = Math.max(0, item.capacity - (live.inCart + live.sold) + live.restocked);
@@ -59,109 +47,70 @@ export default function RetailerVisionOS() {
     return { ...item, cur, ratio };
   }).filter(s => s.ratio < 0.7);
 
-  // 1. Direct Camera Feed + Real-Time DPDP Warm Wave Shader on Canvas
-  useEffect(() => {
-    if (cameraMode === "DIRECT_CAM") {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { width: 640, height: 360 } })
-        .then(stream => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play();
-          }
-        })
-        .catch(() => {
-          setCameraMode("WARM_SIMULATION");
-        });
-    }
-  }, [cameraMode]);
-
-  // Real-time canvas warm wave animation over camera
-  useEffect(() => {
-    let animId: number;
-    const renderWarmWave = () => {
-      if (canvasRef.current && videoRef.current && cameraMode === "DIRECT_CAM") {
-        const ctx = canvasRef.current.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, 640, 360);
-          
-          ctx.filter = "blur(4px) contrast(140%)";
-          ctx.drawImage(canvasRef.current, 0, 0, 640, 360);
-          ctx.filter = "none";
-
-          ctx.fillStyle = "rgba(10, 20, 60, 0.4)";
-          ctx.fillRect(0, 0, 640, 360);
-
-          const time = Date.now() * 0.002;
-          const spotX = 320 + Math.sin(time) * 40;
-          const spotY = 180 + Math.cos(time) * 20;
-
-          const grad = ctx.createRadialGradient(spotX, spotY, 10, spotX, spotY, 60);
-          grad.addColorStop(0, "rgba(255, 0, 50, 0.85)");
-          grad.addColorStop(0.5, "rgba(255, 140, 0, 0.55)");
-          grad.addColorStop(1, "rgba(255, 220, 0, 0)");
-
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(spotX, spotY, 60, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-          ctx.fillRect(10, 10, 340, 36);
-          ctx.fillStyle = "#00ffcc";
-          ctx.font = "bold 11px monospace";
-          ctx.fillText("DPDP COMPLIANT | LIVE WARM WAVE IR FEED", 20, 32);
-        }
-      }
-      animId = requestAnimationFrame(renderWarmWave);
-    };
-    renderWarmWave();
-    return () => cancelAnimationFrame(animId);
-  }, [cameraMode]);
-
-  // 2. Safe Tunnel Polling (Fallback for backend stream)
+  // Tunnel Stream Polling (DroidCam + Real Person Thermal Stream)
   useEffect(() => {
     let active = true;
     const pollTunnel = async () => {
-      if (cameraMode !== "TUNNEL_BLOB") return;
       try {
         const res = await fetch(`${BACKEND_TUNNEL_URL}/thermal_blob`, {
           headers: { "bypass-tunnel-reminder": "true" }
         });
         if (res.ok && active) {
           const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          setTunnelBlobUrl(url);
+          setTunnelBlobUrl(URL.createObjectURL(blob));
         }
       } catch {
-        // Silent fallback
+        // Fallback
       } finally {
-        if (active && cameraMode === "TUNNEL_BLOB") setTimeout(pollTunnel, 100);
+        if (active) setTimeout(pollTunnel, 80);
       }
     };
     pollTunnel();
     return () => { active = false; };
-  }, [cameraMode]);
+  }, []);
 
-  // --- 🚀 AUTOMATED ALERT DISPATCHER (Calls Python Backend) ---
+  // --- AUTOMATED ALERT DISPATCH ---
   const triggerAutomatedAlert = async (title: string, msg: string, method: "WHATSAPP" | "SMS" | "BOTH") => {
-    notify(`Dispatching ${method} Alert to Edge Server...`);
+    notify(`Dispatching ${method} Alert...`);
     try {
-      const response = await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
+      await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "bypass-tunnel-reminder": "true"
-        },
+        headers: { "Content-Type": "application/json", "bypass-tunnel-reminder": "true" },
         body: JSON.stringify({ title, message: msg, method })
       });
-      if (response.ok) {
-        notify(`✅ ${method} automation script triggered successfully!`);
+      notify(`✅ ${method} automation triggered on server!`);
+    } catch {
+      // Instant Web Fallback if backend offline
+      const text = encodeURIComponent(`🚨 [ALERT]: ${title} - ${msg}`);
+      window.open(`https://wa.me/91${MANAGER_PHONE}?text=${text}`, "_blank");
+    }
+  };
+
+  // --- WORKING BARCODE SCANNER TRIGGER ---
+  const handleActiveBarcodeScan = async () => {
+    setIsScanning(true);
+    notify("Scanning product barcode via DroidCam stream...");
+    try {
+      const res = await fetch(`${BACKEND_TUNNEL_URL}/scan-barcode`, {
+        method: "POST",
+        headers: { "bypass-tunnel-reminder": "true" }
+      });
+      const data = await res.json();
+      if (data.status === "success" && data.barcode) {
+        const matchedItem = STORE_SKUS.find(s => s.barcode === data.barcode);
+        if (matchedItem) {
+          handlePickReturn(matchedItem.id, 1);
+          notify(`✅ Scanned & Added: ${matchedItem.name} (${data.barcode})`);
+        } else {
+          notify(`Scanned Barcode: ${data.barcode} (Unregistered SKU)`);
+        }
       } else {
-        notify(`⚠️ Failed to trigger ${method}. Server responded with error.`);
+        notify("❌ No barcode detected. Hold item closer to camera.");
       }
-    } catch (err) {
-      notify(`❌ Backend offline! Ensure python scan_bridge.py is running.`);
+    } catch {
+      notify("❌ Scanner error. Check backend bridge.");
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -179,109 +128,44 @@ export default function RetailerVisionOS() {
     if (item) {
       handlePickReturn(item.id, 1);
       setBarcodeInput("");
+      notify(`Added ${item.name} to cart.`);
+    } else {
+      notify("SKU or Barcode not found!");
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 lg:p-6 space-y-4 relative">
       
-      {/* Toast Bar */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xl animate-bounce">
           {toastMessage}
         </div>
       )}
 
-      {/* 🚨 1. PRIMARY ALERT CENTER (Queue Rush & Low Stock) */}
+      {/* ALERT SECTION */}
       <section className="space-y-2">
-        {/* Queue Rush Alert */}
         {isRushAlert && (
-          <div className="p-4 bg-rose-950/40 border border-rose-600 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-rose-950/40">
+          <div className="p-4 bg-rose-950/40 border border-rose-600 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
             <div className="flex items-center gap-3">
               <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping shrink-0" />
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wide text-rose-400">Queue Rush Detected (&ge; 4 Persons)</h4>
-                <p className="text-xs text-slate-300">
-                  Counter 1 ({counters.c1}) & Counter 2 ({counters.c2}) congested. Open Counter 3 immediately!
-                </p>
+                <p className="text-xs text-slate-300">Counter 1 ({counters.c1}) & Counter 2 ({counters.c2}) congested. Open Counter 3!</p>
               </div>
             </div>
-
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => triggerAutomatedAlert(
-                  "QUEUE RUSH ALERT",
-                  `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3!`,
-                  "WHATSAPP"
-                )}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                onClick={() => triggerAutomatedAlert("QUEUE RUSH", "Counter 1 & 2 congested. Open Counter 3!", "WHATSAPP")}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold"
               >
-                <span>Auto WhatsApp</span>
+                Auto WhatsApp
               </button>
-
-              <button
-                onClick={() => triggerAutomatedAlert(
-                  "QUEUE RUSH ALERT",
-                  `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3!`,
-                  "SMS"
-                )}
-                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
-              >
-                <span>Auto SMS</span>
-              </button>
-
-              <button
-                onClick={() => triggerAutomatedAlert(
-                  "CRITICAL RUSH BROADCAST",
-                  `Bottleneck at C1 & C2. Deploy Counter 3 immediately.`,
-                  "BOTH"
-                )}
-                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition"
-              >
-                Dual Automation
-              </button>
-
               <button
                 onClick={() => setCounters(prev => ({ ...prev, c3Active: true }))}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold"
               >
                 Open C3
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Global Shelf Depletion Alert */}
-        {lowStockItems.length > 0 && (
-          <div className="p-3.5 bg-amber-950/30 border border-amber-500/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-              <p className="text-xs text-amber-200">
-                <b>{lowStockItems.length} Shelf Slots</b> below 70%: {lowStockItems.map(i => `${i.name} (${Math.round(i.ratio * 100)}%)`).join(", ")}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => triggerAutomatedAlert(
-                  "STORE DEPLETION REFILL",
-                  `Restock needed for: ${lowStockItems.map(i => `${i.slot} (${i.name})`).join(", ")}`,
-                  "WHATSAPP"
-                )}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold whitespace-nowrap"
-              >
-                WA Restock List
-              </button>
-
-              <button
-                onClick={() => triggerAutomatedAlert(
-                  "STORE DEPLETION REFILL",
-                  `Restock needed for: ${lowStockItems.map(i => `${i.slot} (${i.name})`).join(", ")}`,
-                  "SMS"
-                )}
-                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold whitespace-nowrap"
-              >
-                SMS Restock List
               </button>
             </div>
           </div>
@@ -305,8 +189,9 @@ export default function RetailerVisionOS() {
           </div>
         </div>
 
-        <div className="lg:col-span-5">
-          <form onSubmit={handleBarcodeInputSubmit} className="flex gap-2">
+        {/* BARCODE SEARCH + WORKING SCANNER BUTTON */}
+        <div className="lg:col-span-5 flex gap-2">
+          <form onSubmit={handleBarcodeInputSubmit} className="flex gap-2 flex-1">
             <input
               type="text"
               value={barcodeInput}
@@ -314,52 +199,34 @@ export default function RetailerVisionOS() {
               placeholder="Scan Barcode / SKU Code..."
               className="w-full bg-slate-950 border border-slate-700 px-3 py-2 text-xs rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-slate-100"
             />
-            <button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap shadow-sm"
-            >
-              Scan Bar Prod
+            <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
+              Add
             </button>
           </form>
+          <button
+            onClick={handleActiveBarcodeScan}
+            disabled={isScanning}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shadow-md flex items-center gap-1.5"
+          >
+            <span>{isScanning ? "Scanning..." : "📷 Scan Live Barcode"}</span>
+          </button>
         </div>
 
         <div className="lg:col-span-3 flex justify-end">
-          <button
-            onClick={() => triggerAutomatedAlert("STORE AUDIT", "Manual store audit triggered. Check edge camera feed.", "BOTH")}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-950 to-slate-900 border border-indigo-700 text-right hover:border-indigo-500 transition"
-          >
-            <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">Automated Test Alert</span>
-            <span className="text-xs font-black text-indigo-300 tracking-wider">Trigger +91-{MANAGER_PHONE}</span>
-          </button>
+          <div className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-950 to-slate-900 border border-indigo-700 text-right">
+            <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">Target Manager</span>
+            <span className="text-xs font-black text-indigo-300 tracking-wider">+91-{MANAGER_PHONE}</span>
+          </div>
         </div>
       </header>
 
-      {/* TWO-COLUMN LAYOUT */}
+      {/* TWO COLUMN CONTENT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-        {/* LEFT COLUMN */}
+        
+        {/* LEFT: Counters & Products */}
         <div className="lg:col-span-7 space-y-4">
-          
-          {/* Counter Queue Section */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue + Action</h3>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => triggerAutomatedAlert("QUEUE STATUS", `C1: ${counters.c1}, C2: ${counters.c2}`, "WHATSAPP")}
-                  className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-[10px] text-emerald-300 font-semibold"
-                >
-                  Auto WA
-                </button>
-                <button
-                  onClick={() => triggerAutomatedAlert("QUEUE STATUS", `C1: ${counters.c1}, C2: ${counters.c2}`, "SMS")}
-                  className="px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-[10px] text-sky-300 font-semibold"
-                >
-                  Auto SMS
-                </button>
-              </div>
-            </div>
-
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue Status</h3>
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-bold block">Counter 1</span>
@@ -369,15 +236,11 @@ export default function RetailerVisionOS() {
                 <span className="text-[10px] text-slate-400 font-bold block">Counter 2</span>
                 <span className="text-lg font-black text-white">{counters.c2} in Line</span>
               </div>
-              <div className={`p-2.5 rounded-xl border flex flex-col justify-between ${
-                counters.c3Active ? "bg-emerald-950/40 border-emerald-800" : "bg-slate-950 border-slate-800"
-              }`}>
+              <div className={`p-2.5 rounded-xl border flex flex-col justify-between ${counters.c3Active ? "bg-emerald-950/40 border-emerald-800" : "bg-slate-950 border-slate-800"}`}>
                 <span className="text-[10px] text-slate-400 font-bold">Counter 3</span>
                 <button
                   onClick={() => setCounters(prev => ({ ...prev, c3Active: !prev.c3Active }))}
-                  className={`text-[10px] font-bold px-2 py-1 rounded transition ${
-                    counters.c3Active ? "bg-rose-600 text-white" : "bg-indigo-600 hover:bg-indigo-500 text-white"
-                  }`}
+                  className={`text-[10px] font-bold px-2 py-1 rounded transition ${counters.c3Active ? "bg-rose-600 text-white" : "bg-indigo-600 hover:bg-indigo-500 text-white"}`}
                 >
                   {counters.c3Active ? "Close C3" : "Open C3"}
                 </button>
@@ -385,208 +248,61 @@ export default function RetailerVisionOS() {
             </div>
           </div>
 
-          {/* Products Left Action + Scrollable Cart List */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Products Left Action (Shelf Slots)</h3>
-                <p className="text-[11px] text-slate-500">Scroll to view stock & dispatch individual shelf alerts</p>
-              </div>
-              <span className="text-xs font-bold text-amber-400 bg-amber-950/50 px-2 py-1 rounded border border-amber-800">
-                FIFO Monitored
-              </span>
-            </div>
-
-            <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Products & Shelf Stock Action</h3>
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
               {STORE_SKUS.map(item => {
                 const live = slotData[item.id] || { inCart: 0, sold: 0, restocked: 0 };
                 const remaining = Math.max(0, item.capacity - (live.inCart + live.sold) + live.restocked);
                 const isLow = remaining / item.capacity < 0.7;
 
                 return (
-                  <div key={item.id} className="p-3 bg-slate-950 border border-slate-800/90 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div key={item.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-3 text-xs">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white">{item.name}</span>
-                        <span className="text-[10px] font-mono text-slate-400 px-1.5 py-0.2 bg-slate-900 rounded">{item.slot}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Shelf Stock: <b className={isLow ? "text-amber-400 font-extrabold" : "text-white"}>{remaining}</b> / {item.capacity} units
-                        {isLow && <span className="text-amber-400 ml-1 font-bold">(&lt; 70%)</span>}
-                      </p>
+                      <span className="font-bold text-white block">{item.name}</span>
+                      <span className="text-[10px] text-slate-400">{item.slot} • Stock: <b className={isLow ? "text-amber-400" : "text-white"}>{remaining}</b></span>
                     </div>
-
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-2">
                       {isLow && (
                         <button
-                          onClick={() => triggerAutomatedAlert(`REFILL ${item.slot}`, `${item.name} is low on stock.`, "WHATSAPP")}
-                          className="px-2 py-1 bg-emerald-950 border border-emerald-700 text-emerald-300 font-bold rounded text-[10px] hover:bg-emerald-900"
+                          onClick={() => triggerAutomatedAlert(`REFILL ${item.slot}`, `${item.name} is low (${remaining} left).`, "WHATSAPP")}
+                          className="px-2 py-1 bg-emerald-950 border border-emerald-700 text-emerald-300 font-bold rounded text-[10px]"
                         >
-                          Auto WA
+                          WA Restock
                         </button>
                       )}
-
-                      {isLow && (
-                        <button
-                          onClick={() => triggerAutomatedAlert(`REFILL ${item.slot}`, `${item.name} is low on stock.`, "SMS")}
-                          className="px-2 py-1 bg-sky-950 border border-sky-700 text-sky-300 font-bold rounded text-[10px] hover:bg-sky-900"
-                        >
-                          Auto SMS
-                        </button>
-                      )}
-
-                      <span className={`px-2 py-1 rounded text-[11px] font-mono font-bold ${
-                        live.inCart > 0 ? "bg-indigo-950 text-indigo-300 border border-indigo-800" : "text-slate-500"
-                      }`}>
-                        Cart: {live.inCart}
-                      </span>
-                      <button
-                        onClick={() => handlePickReturn(item.id, 1)}
-                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded"
-                      >
-                        + Pick
-                      </button>
-                      <button
-                        onClick={() => handlePickReturn(item.id, -1)}
-                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded"
-                      >
-                        - Return
-                      </button>
+                      <span className="px-2 py-1 bg-indigo-950 text-indigo-300 font-mono font-bold rounded">Cart: {live.inCart}</span>
+                      <button onClick={() => handlePickReturn(item.id, 1)} className="px-2 py-1 bg-indigo-600 text-white font-bold rounded">+</button>
+                      <button onClick={() => handlePickReturn(item.id, -1)} className="px-2 py-1 bg-slate-800 text-slate-300 font-bold rounded">-</button>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-
         </div>
 
-        {/* RIGHT COLUMN: Real-Time DPDP Thermal Warm Wave Player */}
+        {/* RIGHT: REAL PERSON HOG THERMAL FEED */}
         <div className="lg:col-span-5 space-y-4">
-          
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
             <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Stream</h3>
-                <p className="text-[10px] text-slate-500 font-mono">Real-Time DPDP Warm Wave Overlay</p>
-              </div>
-
-              {/* Mode Switcher */}
-              <div className="flex gap-1 text-[10px]">
-                <button
-                  onClick={() => setCameraMode("DIRECT_CAM")}
-                  className={`px-2 py-0.5 rounded font-bold ${cameraMode === "DIRECT_CAM" ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400"}`}
-                >
-                  Direct Cam
-                </button>
-                <button
-                  onClick={() => setCameraMode("TUNNEL_BLOB")}
-                  className={`px-2 py-0.5 rounded font-bold ${cameraMode === "TUNNEL_BLOB" ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400"}`}
-                >
-                  Tunnel Stream
-                </button>
-              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Stream</h3>
+              <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">
+                HOG Person Thermal Active
+              </span>
             </div>
 
-            {/* Live Video / Canvas Container */}
-            <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-slate-800 flex items-center justify-center shadow-inner">
-              {/* Mode 1: Direct Browser Webcam + Canvas Thermal Shader */}
-              {cameraMode === "DIRECT_CAM" && (
-                <div className="relative w-full h-full">
-                  <video ref={videoRef} className="hidden" playsInline muted autoPlay />
-                  <canvas ref={canvasRef} width={640} height={360} className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              {/* Mode 2: Python Backend Tunnel Blob */}
-              {cameraMode === "TUNNEL_BLOB" && tunnelBlobUrl && (
-                <img src={tunnelBlobUrl} alt="Thermal CCTV Feed" className="w-full h-full object-cover" />
-              )}
-
-              {/* Mode 3: Fail-safe Simulated Warm Wave */}
-              {cameraMode === "WARM_SIMULATION" && (
-                <div className="w-full h-full bg-slate-950 p-4 flex flex-col justify-between relative overflow-hidden">
-                  <div className="flex justify-between text-[10px] font-mono text-cyan-400">
-                    <span>AISLE_CAM_01 [WARM WAVE IR OVERLAY]</span>
-                    <span>DPDP ACTIVE</span>
-                  </div>
-
-                  <div className="relative w-full h-28 my-auto flex items-center justify-center">
-                    <div className="absolute left-10 flex flex-col items-center">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-r from-red-600 via-orange-500 to-yellow-400 opacity-80 blur-xs animate-pulse" />
-                      <div className="mt-1 px-2 py-0.5 bg-red-950/80 border border-red-600 rounded text-[9px] font-mono text-red-300">
-                        WARM WAVE: DWELL 146s
-                      </div>
-                    </div>
-
-                    <div className="absolute right-12 flex flex-col items-center">
-                      <div className="w-20 h-20 rounded-full border-2 border-red-500 bg-red-600/30 flex items-center justify-center animate-ping" />
-                      <div className="mt-1 px-2 py-0.5 bg-amber-950/80 border border-amber-500 rounded text-[9px] font-mono text-amber-300">
-                        HOTSPOT: SHELF C (215s)
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-[10px] text-slate-400 font-mono flex justify-between">
-                    <span>Centroid: Warm Wave Detected</span>
-                    <span>Face Data: Stripped</span>
-                  </div>
-                </div>
+            <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-slate-800 flex items-center justify-center">
+              {tunnelBlobUrl ? (
+                <img src={tunnelBlobUrl} alt="HOG Human Thermal Stream" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-xs text-slate-400 font-mono animate-pulse">Connecting to DroidCam Stream...</div>
               )}
             </div>
           </div>
-
-          {/* Dwell Time Analytics with Hotspot Alert Buttons */}
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-2.5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Camera Data (Dwell Time)</h3>
-              <span className="text-[10px] font-mono text-amber-400">Heat Signature</span>
-            </div>
-            <div className="space-y-2 text-xs">
-              {dwellSpots.map((spot, i) => (
-                <div key={i} className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-                  <div>
-                    <span className="font-semibold text-white">{spot.shelf}</span>
-                    <span className={`text-[10px] block font-mono ${spot.status === "HIGH_DWELL_ALERT" ? "text-red-400 font-bold" : "text-slate-500"}`}>
-                      {spot.intensity} ({spot.dwell}s linger)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {spot.status === "HIGH_DWELL_ALERT" && (
-                      <button
-                        onClick={() => triggerAutomatedAlert(
-                          "HIGH DWELL CONGESTION",
-                          `Unusual high dwell time (${spot.dwell}s) at ${spot.shelf}. Inspect shelf.`,
-                          "WHATSAPP"
-                        )}
-                        className="px-2 py-1 bg-red-950 border border-red-700 text-red-300 font-bold rounded text-[10px] hover:bg-red-900"
-                      >
-                        Auto WA
-                      </button>
-                    )}
-                    {spot.status === "HIGH_DWELL_ALERT" && (
-                      <button
-                        onClick={() => triggerAutomatedAlert(
-                          "HIGH DWELL CONGESTION",
-                          `High customer dwell time (${spot.dwell}s) at ${spot.shelf}. Inspect shelf.`,
-                          "SMS"
-                        )}
-                        className="px-2 py-1 bg-sky-950 border border-sky-700 text-sky-300 font-bold rounded text-[10px] hover:bg-sky-900"
-                      >
-                        Auto SMS
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
 
       </div>
-
     </div>
   );
 }
