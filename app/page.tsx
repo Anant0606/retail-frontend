@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 
-// --- Minimal Zero-Dependency SVG Icons ---
+// --- Zero-Dependency Minimal SVG Icons ---
 const IconStore = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
@@ -93,7 +93,7 @@ const IconSparkles = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-// --- 50 Realistic Retail SKUs With Actual Barcodes ---
+// --- 50 Verified Retail SKUs with Authentic Barcodes ---
 const INITIAL_50_SKUS = [
   { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch (Classic Blue)", category: "Electronics", capacity: 20, price: 1499 },
   { id: "SKU-5962", barcode: "8902653015962", name: "Crompton LED Bulb 5W Cool White", category: "Lighting", capacity: 35, price: 1000 },
@@ -153,12 +153,13 @@ export default function RetailStudioDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Barcode Scanner Inputs
+  // Barcode & On-Demand Camera States
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanMode, setScanMode] = useState<"PICK" | "RETURN">("PICK");
+  const [isScanningCamera, setIsScanningCamera] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
-  // Counter Management State
+  // Counter Load Management State
   const [counterState, setCounterState] = useState({
     c1Queue: 4,
     c2Queue: 4,
@@ -166,20 +167,20 @@ export default function RetailStudioDashboard() {
     rushAlert: true,
   });
 
-  // Footfall
-  const [footfall, setFootfall] = useState({ in: 52, out: 31 });
+  // Store Footfall
+  const [footfall, setFootfall] = useState({ in: 54, out: 32 });
 
-  // 50 SKU Dynamic State (inCart: Invigilated, sold: POS cleared)
-  const [productStates, setProductStates] = useState<Record<string, { inCart: number; sold: number }>>({
-    "SKU-3059": { inCart: 3, sold: 9 },
-    "SKU-5962": { inCart: 2, sold: 18 },
-    "SKU-1473": { inCart: 1, sold: 10 },
-    "SKU-1837": { inCart: 5, sold: 42 },
-    "SKU-1005": { inCart: 2, sold: 26 },
+  // 50 SKU Dynamic State
+  const [productStates, setProductStates] = useState<Record<string, { inCart: number; sold: number; restocked: number }>>({
+    "SKU-3059": { inCart: 3, sold: 9, restocked: 0 },
+    "SKU-5962": { inCart: 2, sold: 18, restocked: 0 },
+    "SKU-1473": { inCart: 1, sold: 10, restocked: 0 },
+    "SKU-1837": { inCart: 5, sold: 42, restocked: 0 },
+    "SKU-1005": { inCart: 2, sold: 26, restocked: 0 },
   });
 
   const [recentEvents, setRecentEvents] = useState([
-    { id: 1, text: "Scanner input active for 50 EAN barcodes", time: "Just now", type: "system" },
+    { id: 1, text: "Ready: Click 'Execute Scan' to launch edge camera", time: "Just now", type: "system" },
     { id: 2, text: "Counter 1 & 2 rush alert active (8 in queue)", time: "1m ago", type: "alert" },
     { id: 3, text: "boAt Wave picked (Barcode: 8905650133059)", time: "2m ago", type: "pick" },
   ]);
@@ -188,7 +189,7 @@ export default function RetailStudioDashboard() {
     setMounted(true);
   }, []);
 
-  // Web Audio Alert Synthesizer
+  // Web Audio Synthesizer
   const triggerAudio = (type: "pick" | "return" | "alert" | "rush" | "checkout") => {
     if (typeof window === "undefined" || !audioEnabled) return;
     try {
@@ -206,7 +207,7 @@ export default function RetailStudioDashboard() {
         osc.start();
         osc.stop(ctx.currentTime + 0.08);
       } else if (type === "return") {
-        osc.frequency.setValueAtTime(420, ctx.currentTime);
+        osc.frequency.setValueAtTime(460, ctx.currentTime);
         gain.gain.setValueAtTime(0.15, ctx.currentTime);
         osc.start();
         osc.stop(ctx.currentTime + 0.12);
@@ -224,11 +225,10 @@ export default function RetailStudioDashboard() {
         osc.stop(ctx.currentTime + 0.2);
       }
     } catch {
-      // Safe fallback
+      // Audio fallback
     }
   };
 
-  // Rush Queue Evaluator
   const evaluateCounterRush = (c1: number, c2: number, c3Active: boolean) => {
     const isRush = (c1 >= 4 && c2 >= 4) && !c3Active;
     if (isRush && !counterState.rushAlert) {
@@ -247,12 +247,12 @@ export default function RetailStudioDashboard() {
       newC2 = Math.max(2, counterState.c2Queue - 2);
       triggerAudio("checkout");
       setRecentEvents(prev => [
-        { id: Date.now(), text: "Counter 3 DEPLOYED: Queue load alleviated", time: "Just now", type: "checkout" },
+        { id: Date.now(), text: "Counter 3 DEPLOYED: Queue redistributed smoothly", time: "Just now", type: "checkout" },
         ...prev.slice(0, 3)
       ]);
     } else {
       setRecentEvents(prev => [
-        { id: Date.now(), text: "Counter 3 deactivated (Normal operations)", time: "Just now", type: "alert" },
+        { id: Date.now(), text: "Counter 3 deactivated (Normal flow)", time: "Just now", type: "alert" },
         ...prev.slice(0, 3)
       ]);
     }
@@ -278,27 +278,38 @@ export default function RetailStudioDashboard() {
     }));
   };
 
-  // --- Dynamic Shelf Pick (+1) & Remove/Return (-1) Logic ---
+  // --- Dynamic Pick & Return Slot Engine ---
   const handleProductAction = (id: string, name: string, barcode: string, action: "PICK" | "RETURN") => {
+    const skuMeta = INITIAL_50_SKUS.find(s => s.id === id);
+    const capacity = skuMeta?.capacity || 20;
+
     setProductStates(prev => {
-      const current = prev[id] || { inCart: 0, sold: 0 };
-      const skuMeta = INITIAL_50_SKUS.find(s => s.id === id);
-      const remainingStock = Math.max(0, (skuMeta?.capacity || 20) - (current.inCart + current.sold));
+      const current = prev[id] || { inCart: 0, sold: 0, restocked: 0 };
+      const currentStock = Math.max(0, capacity - (current.inCart + current.sold) + current.restocked);
 
       if (action === "PICK") {
-        if (remainingStock <= 0) return prev;
+        if (currentStock <= 0) {
+          triggerAudio("alert");
+          return prev;
+        }
         triggerAudio("pick");
         return {
           ...prev,
           [id]: { ...current, inCart: current.inCart + 1 }
         };
       } else {
-        if (current.inCart <= 0) return prev;
         triggerAudio("return");
-        return {
-          ...prev,
-          [id]: { ...current, inCart: current.inCart - 1 }
-        };
+        if (current.inCart > 0) {
+          return {
+            ...prev,
+            [id]: { ...current, inCart: current.inCart - 1 }
+          };
+        } else {
+          return {
+            ...prev,
+            [id]: { ...current, restocked: current.restocked + 1 }
+          };
+        }
       }
     });
 
@@ -312,26 +323,72 @@ export default function RetailStudioDashboard() {
     ]);
   };
 
-  // Barcode Direct Scan Handler (Keyboard / DroidCam Vision trigger)
-  const handleBarcodeSubmit = (e: React.FormEvent) => {
+  // --- Execute Scan Button Handler (Direct Camera Launcher) ---
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const raw = barcodeInput.trim();
-    if (!raw) return;
 
-    // Match either by 13-digit Barcode or SKU ID
-    const matched = INITIAL_50_SKUS.find(
-      s => s.barcode === raw || s.id.toLowerCase() === raw.toLowerCase() || s.barcode.endsWith(raw)
-    );
+    // 1. Agar user ne manually barcode ya SKU type kiya hai:
+    if (raw) {
+      const matched = INITIAL_50_SKUS.find(
+        s => s.barcode === raw || s.id.toLowerCase() === raw.toLowerCase() || s.barcode.endsWith(raw)
+      );
 
-    if (matched) {
-      handleProductAction(matched.id, matched.name, matched.barcode, scanMode);
-      setBarcodeInput("");
-    } else {
+      if (matched) {
+        handleProductAction(matched.id, matched.name, matched.barcode, scanMode);
+        setBarcodeInput("");
+      } else {
+        triggerAudio("alert");
+        setRecentEvents(prev => [
+          { id: Date.now(), text: `Barcode Not Found: ${raw}`, time: "Just now", type: "alert" },
+          ...prev.slice(0, 3)
+        ]);
+      }
+      return;
+    }
+
+    // 2. Agar input empty hai aur "Execute Scan" click kiya -> Open Python Camera Window
+    setIsScanningCamera(true);
+    setRecentEvents(prev => [
+      { id: Date.now(), text: "Opening Edge Camera Scanner... Please show barcode", time: "Just now", type: "system" },
+      ...prev.slice(0, 3)
+    ]);
+
+    try {
+      const res = await fetch("http://localhost:8000/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+
+      if (data.status === "success" && data.barcode) {
+        const scannedCode = data.barcode.trim();
+        const matched = INITIAL_50_SKUS.find(
+          s => s.barcode === scannedCode || s.barcode.endsWith(scannedCode) || scannedCode.endsWith(s.barcode)
+        );
+
+        if (matched) {
+          handleProductAction(matched.id, matched.name, matched.barcode, scanMode);
+        } else {
+          setRecentEvents(prev => [
+            { id: Date.now(), text: `Custom Item Scanned: ${scannedCode}`, time: "Just now", type: "alert" },
+            ...prev.slice(0, 3)
+          ]);
+        }
+      } else {
+        setRecentEvents(prev => [
+          { id: Date.now(), text: "Scan cancelled or timed out.", time: "Just now", type: "alert" },
+          ...prev.slice(0, 3)
+        ]);
+      }
+    } catch {
       triggerAudio("alert");
       setRecentEvents(prev => [
-        { id: Date.now(), text: `Barcode Not Found: ${raw}`, time: "Just now", type: "alert" },
+        { id: Date.now(), text: "Error: Local Python Bridge offline (Run 'python scan_server.py')", time: "Just now", type: "alert" },
         ...prev.slice(0, 3)
       ]);
+    } finally {
+      setIsScanningCamera(false);
     }
   };
 
@@ -368,18 +425,19 @@ export default function RetailStudioDashboard() {
     }
   };
 
-  // Dynamic Multi-Criteria Computations
+  // Dynamic Computations
   const catalogWithCalculations = useMemo(() => {
     return INITIAL_50_SKUS.map(sku => {
-      const live = productStates[sku.id] || { inCart: 0, sold: 0 };
-      const currentStock = Math.max(0, sku.capacity - (live.inCart + live.sold));
-      const emptySlots = sku.capacity - currentStock;
+      const live = productStates[sku.id] || { inCart: 0, sold: 0, restocked: 0 };
+      const currentStock = Math.max(0, sku.capacity - (live.inCart + live.sold) + live.restocked);
+      const emptySlots = Math.max(0, sku.capacity - currentStock);
       const clearanceRate = Math.min(100, Math.round(((live.inCart + live.sold) / sku.capacity) * 100));
 
       return {
         ...sku,
         inCart: live.inCart,
         sold: live.sold,
+        restocked: live.restocked,
         currentStock,
         emptySlots,
         clearanceRate
@@ -387,7 +445,6 @@ export default function RetailStudioDashboard() {
     });
   }, [productStates]);
 
-  // Aggregates
   const totalCapacity = catalogWithCalculations.reduce((acc, c) => acc + c.capacity, 0);
   const totalRemainingOnShelf = catalogWithCalculations.reduce((acc, c) => acc + c.currentStock, 0);
   const totalInCartInvigilated = catalogWithCalculations.reduce((acc, c) => acc + c.inCart, 0);
@@ -418,11 +475,11 @@ export default function RetailStudioDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50/80 text-slate-800 font-sans relative overflow-hidden">
-      {/* Background Ambience */}
+      {/* Background Soft Glows */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-100/60 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-40 right-10 w-96 h-96 bg-emerald-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Top Header Navbar */}
+      {/* Header Bar */}
       <header className="bg-white/85 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
@@ -433,7 +490,7 @@ export default function RetailStudioDashboard() {
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 tracking-tight">Retailer Vision OS</h1>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Barcode & Slot Synced
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Edge Bridge Active
                 </span>
               </div>
               <p className="text-xs text-slate-500">Autonomous Shelf Compliance, Counter Queue & Clearance Intelligence</p>
@@ -441,7 +498,6 @@ export default function RetailStudioDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Team AIRS Badge */}
             <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100/80">
               <IconSparkles className="w-4 h-4 text-indigo-600" />
               <div className="text-left">
@@ -471,7 +527,7 @@ export default function RetailStudioDashboard() {
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* Main Workspace */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Counter Management & Rush Queue Alert Banner */}
@@ -552,7 +608,7 @@ export default function RetailStudioDashboard() {
           </div>
         </div>
 
-        {/* Real-Time Barcode Scanner Control Bar */}
+        {/* Real-Time On-Demand Barcode Scanner Control Bar */}
         <div className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl border border-slate-200 shadow-xs">
           <form onSubmit={handleBarcodeSubmit} className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -560,8 +616,8 @@ export default function RetailStudioDashboard() {
                 <IconBarcode className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Direct Barcode Scanner Interface</h3>
-                <p className="text-[11px] text-slate-400">Scan product barcode to instantly update shelf slots & cart state</p>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Direct Edge Vision Scanner Interface</h3>
+                <p className="text-[11px] text-slate-400">Tap 'Execute Scan' to launch live camera window, or type barcode directly</p>
               </div>
             </div>
 
@@ -594,15 +650,24 @@ export default function RetailStudioDashboard() {
                 type="text"
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
-                placeholder="Scan / Type EAN Barcode..."
-                className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-52 font-mono"
+                placeholder="Scan / Type Barcode (or Leave Empty for Camera)..."
+                className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-64 font-mono"
               />
 
+              {/* Execute Scan Button (Triggers Python Window on Empty Input) */}
               <button
                 type="submit"
-                className="text-xs font-semibold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-2xs"
+                disabled={isScanningCamera}
+                className="text-xs font-semibold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-2xs disabled:opacity-50 flex items-center gap-1.5"
               >
-                Execute Scan
+                {isScanningCamera ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                    <span>Camera Active...</span>
+                  </>
+                ) : (
+                  <span>Execute Scan</span>
+                )}
               </button>
             </div>
           </form>
@@ -667,16 +732,16 @@ export default function RetailStudioDashboard() {
           </div>
         </div>
 
-        {/* 50 SKUs Shelf Inventory & Live Activity Section */}
+        {/* 50 SKUs Dynamic Shelf Inventory & Live Vision Feed */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Main 50 SKUs Table with Dual Pick & Remove Controls (2 Cols) */}
+          {/* Main 50 SKUs Table with Dual Action Controls (2 Cols) */}
           <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-3">
               <div>
                 <h2 className="text-base font-bold text-slate-900">Barcode-Driven Dynamic Shelf Slots</h2>
-                <p className="text-xs text-slate-500">50 SKUs with verified EAN barcodes. Slot updates instantly on Pick & Return</p>
+                <p className="text-xs text-slate-500">All 50 SKUs linked with live camera scanner and real-time slot clearance</p>
               </div>
 
               <input
@@ -688,7 +753,7 @@ export default function RetailStudioDashboard() {
               />
             </div>
 
-            {/* Category Chips */}
+            {/* Category Filter Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-3 text-xs scrollbar-none">
               {categories.map(cat => (
                 <button
@@ -760,18 +825,13 @@ export default function RetailStudioDashboard() {
                           </span>
                         </td>
 
-                        {/* Dual Pick & Return Buttons */}
+                        {/* Unrestricted Dual Pick & Return Buttons */}
                         <td className="py-3 text-right">
                           <div className="inline-flex items-center gap-1">
                             <button
-                              disabled={item.inCart <= 0}
                               onClick={() => handleProductAction(item.id, item.name, item.barcode, "RETURN")}
-                              title="Return to Shelf (Vacate Cart)"
-                              className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition active:scale-95 ${
-                                item.inCart <= 0
-                                  ? "bg-slate-100 text-slate-300 cursor-not-allowed"
-                                  : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                              }`}
+                              title="Return product to shelf / Restock slot"
+                              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition active:scale-95 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 shadow-2xs"
                             >
                               - Return
                             </button>
@@ -783,7 +843,7 @@ export default function RetailStudioDashboard() {
                               className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg transition active:scale-95 ${
                                 isOut 
                                   ? "bg-slate-100 text-slate-300 cursor-not-allowed" 
-                                  : "bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-200"
+                                  : "bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-200 shadow-2xs"
                               }`}
                             >
                               + Pick
@@ -803,7 +863,7 @@ export default function RetailStudioDashboard() {
             </div>
           </div>
 
-          {/* Right Column: Counter Summary & Live Vision Feed (1 Col) */}
+          {/* Right Rail: Counter Load, Live Feed & Invigilation (1 Col) */}
           <div className="space-y-6">
 
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 shadow-xs">
@@ -851,9 +911,9 @@ export default function RetailStudioDashboard() {
                 <IconShield className="w-4 h-4 text-indigo-300" />
                 <span>Barcode Verification Architecture</span>
               </div>
-              <h4 className="font-bold text-sm text-white mb-1">Dual-Action Slot Management</h4>
+              <h4 className="font-bold text-sm text-white mb-1">On-Demand Camera Handshake</h4>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Shelf slots har pick aur return action par calibrate hote hain. Barcode read hone par system product ki invigilation tracking cart me store karta hai aur shelf vacant slot status ko dynamically reflect karta hai.
+                Execute Scan par click karne par camera trigger hota hai. Jaise hi physical box ka barcode scan hoga, camera window band ho kar live slot calibration instantly execute hogi.
               </p>
             </div>
 
