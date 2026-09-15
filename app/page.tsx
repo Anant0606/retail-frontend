@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
-const BACKEND_TUNNEL_URL = "https://puny-rockets-march.loca.lt/"; // Verify current active tunnel
+const BACKEND_TUNNEL_URL = "https://puny-lands-flow.loca.lt"; // Verify current active tunnel
 
 interface SKUItem {
   id: string;
@@ -45,11 +45,16 @@ export default function ARISMasterOS() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Dwell Stream Blob Holder
+  // Live Camera Stream State
   const [dwellStreamBlob, setDwellStreamBlob] = useState<string | null>(null);
   const [streamConnected, setStreamConnected] = useState(false);
 
-  // Variable Footfall State
+  // Barcode Viewfinder Modal State
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<"REFILL" | "CHECKOUT">("CHECKOUT");
+  const [isScanning, setIsScanning] = useState(false);
+
+  // Dynamic Variable Footfall
   const [footfall, setFootfall] = useState({ in: 86, out: 54 });
   const [lastEvent, setLastEvent] = useState<"IN" | "OUT" | null>(null);
   const activeInStore = Math.max(0, footfall.in - footfall.out);
@@ -76,9 +81,9 @@ export default function ARISMasterOS() {
 
   // Live Activity Log
   const [activities, setActivities] = useState([
-    { text: "Camera Vision Engine: Live human tracking engaged", time: "Just now", type: "success" },
-    { text: "Counter 1 & 2 Congestion threshold exceeded", time: "1m ago", type: "warn" },
-    { text: "FIFO Depletion monitor: 34 SKUs dropped below 70%", time: "3m ago", type: "alert" },
+    { text: "Camera Vision Engine: Live human tracking engaged", time: "Just now" },
+    { text: "Dual-Mode Barcode Scanner Ready (Refill & Sold modes)", time: "1m ago" },
+    { text: "FIFO Depletion monitor: Critical items listed below 70%", time: "3m ago" },
   ]);
 
   // Web Audio Context Synthesizer
@@ -100,10 +105,10 @@ export default function ARISMasterOS() {
 
   const notify = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3200);
+    setTimeout(() => setToast(null), 3500);
   };
 
-  // Continuous Variable Footfall Simulator
+  // Variable Footfall Engine
   useEffect(() => {
     const timer = setInterval(() => {
       setFootfall(prev => {
@@ -111,30 +116,22 @@ export default function ARISMasterOS() {
         if (rand > 0.55) {
           const nextIn = prev.in + 1;
           setLastEvent("IN");
-          setActivities(a => [
-            { text: `🟢 Vision Event: Person Entered via Gate A (Total In: ${nextIn})`, time: "Just now", type: "success" },
-            ...a.slice(0, 6)
-          ]);
+          setActivities(a => [{ text: `🟢 Shopper Entered via Entrance Gate (Total In: ${nextIn})`, time: "Just now" }, ...a.slice(0, 6)]);
           return { ...prev, in: nextIn };
         } else if (rand < 0.35 && (prev.in - prev.out) > 4) {
           const nextOut = prev.out + 1;
           setLastEvent("OUT");
-          setActivities(a => [
-            { text: `🔴 Gate Sensor: Shopper Exited Counter Line (Total Out: ${nextOut})`, time: "Just now", type: "info" },
-            ...a.slice(0, 6)
-          ]);
+          setActivities(a => [{ text: `🔴 Shopper Checkout Exit Complete (Total Out: ${nextOut})`, time: "Just now" }, ...a.slice(0, 6)]);
           return { ...prev, out: nextOut };
         }
         return prev;
       });
-
       setTimeout(() => setLastEvent(null), 1200);
     }, 3800);
-
     return () => clearInterval(timer);
   }, []);
 
-  // Poll Backend Psychological Stream
+  // Poll Psychological Stream
   useEffect(() => {
     let active = true;
     const interval = setInterval(async () => {
@@ -151,18 +148,15 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // --- HARDENED DWELL TIME CAMERA STREAM FETCHER ---
+  // Live Camera Stream Consumer (For Dwell View & Scanner Viewfinder)
   useEffect(() => {
     let active = true;
     const fetchStreamFrame = async () => {
       try {
         const res = await fetch(`${BACKEND_TUNNEL_URL}/thermal_blob`, {
-          headers: { 
-            "bypass-tunnel-reminder": "true" 
-          },
+          headers: { "bypass-tunnel-reminder": "true" },
           cache: "no-store"
         });
-
         const contentType = res.headers.get("content-type");
         if (res.ok && contentType && contentType.includes("image") && active) {
           const blob = await res.blob();
@@ -178,96 +172,102 @@ export default function ARISMasterOS() {
       } catch {
         if (active) setStreamConnected(false);
       } finally {
-        if (active) setTimeout(fetchStreamFrame, 50); // 20 FPS
+        if (active) setTimeout(fetchStreamFrame, 50);
       }
     };
 
-    if (activeView === "dwell") {
+    if (activeView === "dwell" || scannerOpen) {
       fetchStreamFrame();
     }
 
     return () => {
       active = false;
     };
-  }, [activeView]);
+  }, [activeView, scannerOpen]);
 
-  // --- FIXED NTFY PUSH ENGINE ---
+  // Alert Dispatcher via ntfy
   const triggerNtfyAlert = async (title: string, msg: string) => {
     playTone(320, "sawtooth", 0.3);
     setTimeout(() => playTone(240, "sawtooth", 0.35), 180);
-    notify(`Pushing alert to phone (${NTFY_TOPIC})...`);
-
-    let sent = false;
+    notify(`Pushing alert to manager (${NTFY_TOPIC})...`);
 
     try {
       const encodedTitle = encodeURIComponent(`🚨 ${title}`);
-      const ntfyUrl = `https://ntfy.sh/${NTFY_TOPIC}?title=${encodedTitle}&priority=urgent&tags=warning,rotating_light`;
-
-      const response = await fetch(ntfyUrl, {
+      await fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${encodedTitle}&priority=urgent&tags=warning,rotating_light`, {
         method: "POST",
         body: msg,
       });
-
-      if (response.ok) {
-        sent = true;
-        notify("🔔 Notification pushed to Manager's Phone!");
-      }
-    } catch (e) {}
-
-    if (!sent) {
+      notify("🔔 Notification pushed to Manager's Phone!");
+    } catch {
       try {
-        const backendRes = await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
+        await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "bypass-tunnel-reminder": "true"
-          },
-          body: JSON.stringify({
-            title: title,
-            message: msg,
-            priority: "urgent"
-          })
+          headers: { "Content-Type": "application/json", "bypass-tunnel-reminder": "true" },
+          body: JSON.stringify({ title, message: msg, priority: "urgent" })
         });
-
-        if (backendRes.ok) {
-          notify("🔔 Alert sent via server bridge to phone!");
-        } else {
-          notify("❌ Alert dispatch failed on server.");
-        }
-      } catch (err) {
-        notify("❌ Connection error. Check Python tunnel.");
+        notify("🔔 Alert sent via server bridge!");
+      } catch {
+        notify("❌ Push error. Check Python bridge.");
       }
     }
   };
 
-  // Barcode Refill / Checkout
-  const handleBarcodeWorkflow = async (mode: "REFILL" | "CHECKOUT") => {
+  // --- DUAL-MODE BARCODE WORKFLOW (MODAL VIEWFINDER + HARDWARE SCAN) ---
+  const startScannerModal = async (mode: "REFILL" | "CHECKOUT") => {
+    setScanMode(mode);
+    setScannerOpen(true);
+    setIsScanning(true);
     playTone(600, "sine", 0.1);
-    notify(`Scanning DroidCam for ${mode}...`);
+    notify(`📷 [${mode} MODE] Aim barcode inside red laser viewfinder...`);
+
     try {
       const res = await fetch(`${BACKEND_TUNNEL_URL}/scan-barcode`, {
         method: "POST",
         headers: { "bypass-tunnel-reminder": "true" }
       });
       const data = await res.json();
+
       if (data.status === "success" && data.barcode) {
-        playTone(900, "sine", 0.2);
         const item = skus.find(s => s.barcode === data.barcode || s.id === data.barcode);
+
         if (item) {
           if (mode === "REFILL") {
+            // MODE 1: REFILL SHELF LOT
+            playTone(980, "sine", 0.25);
             setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: s.capacity } : s));
-            triggerNtfyAlert("LOT REFILLED", `Lot refilled for ${item.name} (${item.slot}). Manager notified.`);
+            triggerNtfyAlert("SHELF LOT REFILLED", `Refill verified for ${item.name} (${item.slot}). Stock restored to ${item.capacity} units.`);
+            setActivities(a => [{ text: `📦 Lot Refilled: ${item.name} restored to ${item.capacity}`, time: "Just now" }, ...a.slice(0, 6)]);
+            notify(`✅ [REFILLED]: ${item.name} capacity restored! Manager notified.`);
           } else {
-            addToCart(item.id);
-            notify(`Added ${item.name} to cart.`);
+            // MODE 2: PRODUCT SOLD OUT CHECKOUT
+            playTone(850, "sine", 0.15);
+            setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
+            setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: Math.max(0, s.stock - 1) } : s));
+
+            const remaining = item.stock - 1;
+            setActivities(a => [{ text: `💳 Sold & Added to Bill: ${item.name} (Left: ${remaining})`, time: "Just now" }, ...a.slice(0, 6)]);
+            notify(`✅ [SOLD]: Added ${item.name} to bill. Remaining stock: ${remaining}`);
+
+            if (remaining / item.capacity < 0.7) {
+              setTimeout(() => {
+                triggerNtfyAlert("LOW STOCK AUTO-TRIGGER", `${item.name} dropped to ${remaining} units (<70%).`);
+              }, 600);
+            }
           }
+          // Auto close scanner on success after brief confirmation
+          setTimeout(() => setScannerOpen(false), 900);
+        } else {
+          playTone(250, "square", 0.2);
+          notify(`⚠️ Scanned Barcode: ${data.barcode} (Unregistered SKU)`);
         }
       } else {
-        playTone(200, "square", 0.2);
-        notify("❌ No barcode detected. Hold item closer.");
+        playTone(220, "square", 0.25);
+        notify("❌ No barcode detected. Ensure barcode is well lit.");
       }
     } catch {
-      notify("❌ Backend bridge offline.");
+      notify("❌ Backend bridge offline. Check Python terminal.");
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -288,25 +288,161 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
-  const exportPsychologicalPDF = () => {
+  // --- NATIVE PDF EXPORT ENGINE 1: TAX INVOICE BILL ---
+  const saveInvoiceAsPDF = () => {
+    const totalAmount = Object.entries(cart).reduce((acc, [id, qty]) => {
+      const item = skus.find(s => s.id === id);
+      return acc + (item ? item.price * qty : 0);
+    }, 0);
+
+    if (totalAmount === 0) {
+      notify("Cart is empty! Scan or add items to generate bill.");
+      return;
+    }
+
+    playTone(950, "sine", 0.2);
+    const invoiceId = `INV-${Math.floor(100000 + Math.random() * 900000)}`;
+    const invoiceDate = new Date().toLocaleString();
+
+    const itemsRows = Object.entries(cart).map(([skuId, qty]) => {
+      const item = skus.find(s => s.id === skuId);
+      if (!item) return "";
+      return `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;"><b>${item.name}</b><br><small style="color:#666">${item.id} • ${item.slot}</small></td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${qty}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;">₹${item.price.toFixed(2)}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(item.price * qty).toFixed(2)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${invoiceId} - Tax Invoice</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #111; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
+          .title { font-size: 24px; font-weight: 900; color: #1e3a8a; margin: 0; }
+          .meta { font-size: 12px; color: #555; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          th { background: #f1f5f9; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+          .total-box { margin-top: 25px; text-align: right; }
+          .total-box h2 { font-size: 22px; color: #1e3a8a; margin: 5px 0; }
+          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #777; border-top: 1px solid #eee; padding-top: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 class="title">ARIS RETAIL INTELLIGENCE</h1>
+            <div class="meta">Automated Retail Intelligence System • Official Tax Invoice</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: bold; font-size: 16px;">${invoiceId}</div>
+            <div class="meta">${invoiceDate}</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item Description</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Price</th>
+              <th style="text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows}
+          </tbody>
+        </table>
+        <div class="total-box">
+          <div style="font-size: 14px; color: #444;">Subtotal: ₹${totalAmount.toFixed(2)}</div>
+          <div style="font-size: 14px; color: #16a34a; font-weight: bold;">Store Discount: -₹0.00</div>
+          <h2>Grand Total: ₹${totalAmount.toFixed(2)}</h2>
+        </div>
+        <div class="footer">
+          Thank you for shopping with us! • Generated via ARIS POS Terminal
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open("", "_blank", "width=850,height=950");
+    if (printWin) {
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+        printWin.close();
+        setCart({});
+        notify("✅ Invoice saved as PDF!");
+      }, 350);
+    }
+  };
+
+  // --- NATIVE PDF EXPORT ENGINE 2: PSYCHOLOGICAL REPORT ---
+  const savePsychologicalReportAsPDF = () => {
     playTone(880, "sine", 0.15);
-    notify("📄 Preparing Official Psychological Dwell Audit PDF...");
-    setTimeout(() => {
-      window.print();
-    }, 800);
+    const reportDate = new Date().toLocaleString();
+    const reportHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>ARIS - Customer Psychological Dwell Audit</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #111; }
+          .header { border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 20px; }
+          .box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+          .tag { display: inline-block; padding: 3px 8px; font-size: 11px; background: #ede9fe; color: #6d28d9; border-radius: 4px; font-weight: bold; }
+          h2 { font-size: 26px; color: #1e1b4b; margin: 8px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1 style="margin: 0; color: #4c1d95; font-size: 24px;">ARIS CUSTOMER PSYCHOLOGICAL REPORT</h1>
+          <p style="margin: 4px 0; color: #64748b; font-size: 12px;">Computer Vision Heatwave & Shelf Dwell Analytics • Generated: ${reportDate}</p>
+        </div>
+        <div class="box">
+          <span class="tag">Dwell Duration</span>
+          <h2>${insights.dwell_seconds} Seconds Active Stop</h2>
+          <p><b>Target Shelf Location:</b> ${insights.zone}</p>
+          <p><b>Target Product / Offer:</b> ${insights.active_sku}</p>
+          <p><b>Inferred Behavior Intent:</b> ${insights.intent_state}</p>
+        </div>
+        <div class="box" style="background: #fdf4ff; border-color: #f0abfc;">
+          <span class="tag" style="background: #fae8ff; color: #a21caf;">AI Behavioral Diagnosis</span>
+          <p style="font-size: 14px; margin-top: 10px; line-height: 1.5;">"${insights.psychology_insight}"</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open("", "_blank", "width=850,height=950");
+    if (printWin) {
+      printWin.document.write(reportHtml);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+        printWin.close();
+        notify("✅ Psychological Report saved as PDF!");
+      }, 350);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-3 lg:p-5 space-y-4 relative selection:bg-indigo-600">
       
-      {/* Toast Alert */}
       {toast && (
         <div className="fixed top-5 right-5 z-50 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-2xl animate-bounce border border-indigo-400">
           {toast}
         </div>
       )}
 
-      {/* Backdrop overlay when Hamburger menu is open */}
       {menuOpen && (
         <div 
           onClick={() => setMenuOpen(false)} 
@@ -314,9 +450,8 @@ export default function ARISMasterOS() {
         />
       )}
 
-      {/* ================= TOP CLEAN HEADER BAR ================= */}
+      {/* TOP HEADER */}
       <nav className="bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xl relative z-40">
-        
         <div className="flex items-center gap-3">
           <button
             onClick={() => { playTone(500, "sine", 0.05); setMenuOpen(!menuOpen); }}
@@ -345,23 +480,18 @@ export default function ARISMasterOS() {
         </div>
       </nav>
 
-      {/* ================= FIXED SOLID SLIDE-OUT MENU ================= */}
+      {/* SOLID SLIDE-OUT MENU */}
       {menuOpen && (
         <div className="fixed top-16 left-4 z-50 w-80 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl space-y-2 animate-fadeIn ring-2 ring-indigo-500/30">
           <div className="flex justify-between items-center pb-2 border-b border-slate-800">
             <span className="text-[11px] font-mono uppercase text-indigo-400 font-bold">ARIS System Modules</span>
-            <button 
-              onClick={() => setMenuOpen(false)} 
-              className="text-slate-400 hover:text-white text-xs px-2 py-0.5 rounded bg-slate-800"
-            >
-              ✕ Close
-            </button>
+            <button onClick={() => setMenuOpen(false)} className="text-slate-400 hover:text-white text-xs px-2 py-0.5 rounded bg-slate-800">✕ Close</button>
           </div>
 
           <div className="space-y-1.5 pt-1">
             <button 
               onClick={() => { playTone(600, "sine", 0.05); setActiveView("home"); setMenuOpen(false); }} 
-              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "home" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "home" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
             >
               <span className="text-base">🏠</span>
               <div>
@@ -372,7 +502,7 @@ export default function ARISMasterOS() {
 
             <button 
               onClick={() => { playTone(600, "sine", 0.05); setActiveView("stock"); setMenuOpen(false); }} 
-              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "stock" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "stock" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
             >
               <span className="text-base">📦</span>
               <div>
@@ -383,7 +513,7 @@ export default function ARISMasterOS() {
 
             <button 
               onClick={() => { playTone(600, "sine", 0.05); setActiveView("dwell"); setMenuOpen(false); }} 
-              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "dwell" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "dwell" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
             >
               <span className="text-base">🧠</span>
               <div>
@@ -394,7 +524,7 @@ export default function ARISMasterOS() {
 
             <button 
               onClick={() => { playTone(600, "sine", 0.05); setActiveView("billing"); setMenuOpen(false); }} 
-              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "billing" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
+              className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${activeView === "billing" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-300 bg-slate-950 hover:bg-slate-800"}`}
             >
               <span className="text-base">💳</span>
               <div>
@@ -409,9 +539,7 @@ export default function ARISMasterOS() {
       {/* ================= VIEW: MAIN HOMEPAGE DASHBOARD ================= */}
       {activeView === "home" && (
         <div className="space-y-4 animate-fadeIn">
-          
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
               <div className={`bg-slate-900 border ${lastEvent === "IN" ? "border-emerald-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center justify-center gap-1">
@@ -419,9 +547,7 @@ export default function ARISMasterOS() {
                   Cam In
                 </span>
                 <span className="text-2xl lg:text-3xl font-black text-white">{footfall.in}</span>
-                <span className="text-[9px] text-slate-400 font-mono block">
-                  {lastEvent === "IN" ? <span className="text-emerald-400 font-bold">+1 Detected</span> : "Live Optical Gate"}
-                </span>
+                <span className="text-[9px] text-slate-400 font-mono block">Optical Gate</span>
               </div>
 
               <div className={`bg-slate-900 border ${lastEvent === "OUT" ? "border-rose-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
@@ -430,9 +556,7 @@ export default function ARISMasterOS() {
                   Exit Out
                 </span>
                 <span className="text-2xl lg:text-3xl font-black text-white">{footfall.out}</span>
-                <span className="text-[9px] text-slate-400 font-mono block">
-                  {lastEvent === "OUT" ? <span className="text-rose-400 font-bold">+1 Checked out</span> : "Exit Clearance"}
-                </span>
+                <span className="text-[9px] text-slate-400 font-mono block">Checkout Gate</span>
               </div>
 
               <div className="bg-slate-900 border border-indigo-900/60 p-3 rounded-2xl text-center relative overflow-hidden">
@@ -459,7 +583,7 @@ export default function ARISMasterOS() {
                     <span className="text-white font-mono font-bold">{counters.c1} in Line</span>
                   </div>
                   <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-rose-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, counters.c1 * 20)}%` }} />
+                    <div className="bg-rose-500 h-full rounded-full" style={{ width: `${Math.min(100, counters.c1 * 20)}%` }} />
                   </div>
                 </div>
 
@@ -469,7 +593,7 @@ export default function ARISMasterOS() {
                     <span className="text-white font-mono font-bold">{counters.c2} in Line</span>
                   </div>
                   <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, counters.c2 * 20)}%` }} />
+                    <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, counters.c2 * 20)}%` }} />
                   </div>
                 </div>
 
@@ -480,9 +604,7 @@ export default function ARISMasterOS() {
                       setCounters(prev => ({ ...prev, c3Active: !prev.c3Active }));
                     }}
                     className={`w-full py-2.5 rounded-xl text-xs font-bold transition shadow ${
-                      counters.c3Active 
-                        ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                        : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                      counters.c3Active ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-indigo-600 hover:bg-indigo-500 text-white"
                     }`}
                   >
                     {counters.c3Active ? "Close Counter 3" : "Open Counter 3"}
@@ -502,11 +624,9 @@ export default function ARISMasterOS() {
                 </button>
               </div>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            
             <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Updation Store Activity</h3>
@@ -555,7 +675,6 @@ export default function ARISMasterOS() {
                             triggerNtfyAlert(`LOW STOCK: ${item.slot}`, `${item.name} is down to ${item.stock} units (${ratio}%). Dispatch restock lot.`);
                           }}
                           className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px] flex items-center gap-1 shadow transition active:scale-95"
-                          title="Trigger Buzzer Alert"
                         >
                           <span>🚨 Alert Buzzer</span>
                         </button>
@@ -575,13 +694,11 @@ export default function ARISMasterOS() {
                 </button>
               </div>
             </div>
-
           </div>
-
         </div>
       )}
 
-      {/* ================= OPTION 1: STOCK SHELF DATA (50+ SKUs) ================= */}
+      {/* ================= OPTION 1: STOCK SHELF DATA ================= */}
       {activeView === "stock" && (
         <div className="space-y-4 animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -640,13 +757,9 @@ export default function ARISMasterOS() {
                         </td>
                         <td className="p-3.5">
                           {isLow ? (
-                            <span className="px-2 py-0.5 rounded bg-rose-950 border border-rose-600 text-rose-300 text-[10px] font-bold">
-                              🚨 Low Stock (&lt;70%)
-                            </span>
+                            <span className="px-2 py-0.5 rounded bg-rose-950 border border-rose-600 text-rose-300 text-[10px] font-bold">🚨 Low Stock (&lt;70%)</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-600 text-emerald-300 text-[10px] font-bold">
-                              Optimal
-                            </span>
+                            <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-600 text-emerald-300 text-[10px] font-bold">Optimal</span>
                           )}
                         </td>
                         <td className="p-3.5">
@@ -674,16 +787,15 @@ export default function ARISMasterOS() {
       {/* ================= OPTION 2: DWELL TIME & PSYCHOLOGICAL DATA ================= */}
       {activeView === "dwell" && (
         <div className="space-y-4 animate-fadeIn">
-          
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-base font-black text-white">2) Dwell Time Calculation & Psychological Heatwave</h2>
-              <p className="text-xs text-slate-400">Thermal live stream, customer stop duration, shelf attraction estimates, and psychological data export.</p>
+              <p className="text-xs text-slate-400">Thermal live stream, customer stop duration, shelf attraction estimates, and PDF export.</p>
             </div>
             
             <div className="flex items-center gap-2">
               <button
-                onClick={exportPsychologicalPDF}
+                onClick={savePsychologicalReportAsPDF}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-1.5 transition active:scale-95"
               >
                 <span>📥 Export Psychological Data PDF</span>
@@ -698,8 +810,6 @@ export default function ARISMasterOS() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            
-            {/* Live Thermal Stream Box */}
             <div className="lg:col-span-7 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Thermal Heatwave Camera Feed</h3>
@@ -709,14 +819,9 @@ export default function ARISMasterOS() {
                 </span>
               </div>
 
-              {/* ROBUST STREAM CANVAS VIA BLOB / BYPASS */}
               <div className="aspect-video bg-black rounded-2xl overflow-hidden relative border border-slate-800 flex items-center justify-center shadow-inner">
                 {dwellStreamBlob ? (
-                  <img
-                    src={dwellStreamBlob}
-                    alt="Live Thermal Heatwave Stream"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={dwellStreamBlob} alt="Live Thermal Heatwave Stream" className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex flex-col items-center justify-center space-y-2.5 p-4 text-center">
                     <div className="w-9 h-9 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -727,7 +832,6 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            {/* Psychological Metrics */}
             <div className="lg:col-span-5 space-y-4">
               <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 shadow-xl">
                 <div className="flex justify-between items-center">
@@ -754,25 +858,21 @@ export default function ARISMasterOS() {
 
                 <div className="p-3.5 bg-gradient-to-r from-indigo-950/60 to-slate-950 border border-indigo-900/60 rounded-xl">
                   <div className="text-[10px] font-mono text-indigo-400 uppercase font-bold">AI Psychological Breakdown</div>
-                  <p className="text-xs text-slate-200 mt-1 leading-relaxed">
-                    "{insights.psychology_insight}"
-                  </p>
+                  <p className="text-xs text-slate-200 mt-1 leading-relaxed">"{insights.psychology_insight}"</p>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* ================= OPTION 3: COUNTER BOY BILLING & BARCODE WORKFLOW ================= */}
+      {/* ================= OPTION 3: COUNTER BOY BILLING & DUAL BARCODE WORKFLOW ================= */}
       {activeView === "billing" && (
         <div className="space-y-4 animate-fadeIn">
-          
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h2 className="text-base font-black text-white">3) Counter Boy Billing & Barcode Workflow</h2>
-              <p className="text-xs text-slate-400">Manual SKU addition/removal for 50+ SKUs, bill PDF export, and DroidCam barcode scanner for lot refilling & sales checkout.</p>
+              <h2 className="text-base font-black text-white">3) Counter Boy Billing & Dual-Mode Barcode Workflow</h2>
+              <p className="text-xs text-slate-400">Same barcode scanner works in 2 modes: Refill shelf lot (notifies manager) OR Checkout sold product (auto-bills).</p>
             </div>
             <button 
               onClick={() => { playTone(400, "sine", 0.05); setActiveView("home"); }} 
@@ -782,6 +882,7 @@ export default function ARISMasterOS() {
             </button>
           </div>
 
+          {/* DUAL-MODE BARCODE TRIGGER CONTROLS */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <input
@@ -809,24 +910,27 @@ export default function ARISMasterOS() {
               </button>
             </div>
 
+            {/* SCANNER MODAL TRIGGER BUTTONS */}
             <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
               <button
-                onClick={() => handleBarcodeWorkflow("REFILL")}
-                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5"
+                onClick={() => startScannerModal("REFILL")}
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-lg transition flex items-center gap-2 active:scale-95"
               >
-                <span>📷 Scan Barcode: Refill Lot & Notify Manager</span>
+                <span>📦</span>
+                <span>Scan Barcode: Refill Lot & Notify Manager</span>
               </button>
+
               <button
-                onClick={() => handleBarcodeWorkflow("CHECKOUT")}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5"
+                onClick={() => startScannerModal("CHECKOUT")}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg transition flex items-center gap-2 active:scale-95"
               >
-                <span>📷 Scan Barcode: Product Sold Checkout</span>
+                <span>💳</span>
+                <span>Scan Barcode: Product Sold Checkout</span>
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            
             <div className="lg:col-span-8 bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">50+ SKUs Quick Select Catalog</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
@@ -834,7 +938,7 @@ export default function ARISMasterOS() {
                   <div key={item.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2 text-xs">
                     <div>
                       <span className="font-bold text-white block">{item.name}</span>
-                      <span className="text-[10px] font-mono text-slate-400">{item.slot} • ₹{item.price}</span>
+                      <span className="text-[10px] font-mono text-slate-400">{item.slot} • ₹{item.price} • Stock: {item.stock}</span>
                     </div>
                     <button
                       onClick={() => addToCart(item.id)}
@@ -887,21 +991,68 @@ export default function ARISMasterOS() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    playTone(950, "sine", 0.2);
-                    notify("📄 Exporting Official Bill Invoice PDF...");
-                    setTimeout(() => { notify("✅ Bill PDF Exported!"); setCart({}); }, 1800);
-                  }}
+                  onClick={saveInvoiceAsPDF}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center gap-2 active:scale-95"
                 >
-                  <span>📥 Checkout & Export Bill PDF</span>
+                  <span>📥 Checkout & Save Bill as PDF</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* ================= LIVE BARCODE SCANNER VIEWFINDER MODAL ================= */}
+      {scannerOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl p-6 space-y-4 shadow-2xl relative">
+            
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${scanMode === "REFILL" ? "bg-amber-500" : "bg-emerald-500"} animate-ping`} />
+                <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                  {scanMode === "REFILL" ? "Mode 1: Shelf Lot Restock Scanner" : "Mode 2: Product Sold Checkout Scanner"}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setScannerOpen(false)} 
+                className="text-slate-400 hover:text-white px-2.5 py-1 rounded-xl bg-slate-800 text-xs font-bold"
+              >
+                ✕ Cancel
+              </button>
+            </div>
+
+            {/* Targeting Viewfinder with Laser Aim */}
+            <div className="aspect-video w-full bg-black rounded-2xl overflow-hidden relative border-2 border-indigo-500/50 flex items-center justify-center shadow-inner">
+              {dwellStreamBlob ? (
+                <img src={dwellStreamBlob} alt="Live Scanner Feed" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center space-y-2 text-center">
+                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-mono text-slate-400">Connecting Camera Viewfinder...</span>
+                </div>
+              )}
+
+              {/* Laser Grid Overlay */}
+              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                <div className="w-52 h-32 border-2 border-dashed border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(52,211,153,0.4)]">
+                  <div className="w-full h-0.5 bg-rose-500 absolute top-1/2 -translate-y-1/2 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                </div>
+                <span className="text-[10px] font-mono text-emerald-300 mt-3 bg-black/80 px-2.5 py-1 rounded-full border border-emerald-500/40">
+                  Align product barcode inside red laser
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center">
+              <p className="text-xs text-slate-300">
+                {scanMode === "REFILL" 
+                  ? "Scanning lot will instantly refill shelf capacity to 100% and notify the manager."
+                  : "Scanning product will deduct 1 unit from stock and add directly to billing cart."}
+              </p>
             </div>
 
           </div>
-
         </div>
       )}
 
