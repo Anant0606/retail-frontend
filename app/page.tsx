@@ -71,7 +71,6 @@ export default function RetailerVisionOS() {
           }
         })
         .catch(() => {
-          // If browser webcam blocked, switch to tunnel or warm simulation
           setCameraMode("WARM_SIMULATION");
         });
     }
@@ -86,21 +85,17 @@ export default function RetailerVisionOS() {
         if (ctx) {
           ctx.drawImage(videoRef.current, 0, 0, 640, 360);
           
-          // Apply Thermal Filter (DPDP Blur + Warm Wave Overlay)
           ctx.filter = "blur(4px) contrast(140%)";
           ctx.drawImage(canvasRef.current, 0, 0, 640, 360);
           ctx.filter = "none";
 
-          // Warm Wave Tint Layer
           ctx.fillStyle = "rgba(10, 20, 60, 0.4)";
           ctx.fillRect(0, 0, 640, 360);
 
-          // Simulated Warm Wave Centroid / Red Dwell Hotspot
           const time = Date.now() * 0.002;
           const spotX = 320 + Math.sin(time) * 40;
           const spotY = 180 + Math.cos(time) * 20;
 
-          // Red-Orange Warm Glow
           const grad = ctx.createRadialGradient(spotX, spotY, 10, spotX, spotY, 60);
           grad.addColorStop(0, "rgba(255, 0, 50, 0.85)");
           grad.addColorStop(0.5, "rgba(255, 140, 0, 0.55)");
@@ -111,7 +106,6 @@ export default function RetailerVisionOS() {
           ctx.arc(spotX, spotY, 60, 0, Math.PI * 2);
           ctx.fill();
 
-          // DPDP Header Stamp
           ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
           ctx.fillRect(10, 10, 340, 36);
           ctx.fillStyle = "#00ffcc";
@@ -125,7 +119,7 @@ export default function RetailerVisionOS() {
     return () => cancelAnimationFrame(animId);
   }, [cameraMode]);
 
-  // 2. Safe Tunnel Polling (Uses fetch + Blob to bypass Localtunnel landing page)
+  // 2. Safe Tunnel Polling (Fallback for backend stream)
   useEffect(() => {
     let active = true;
     const pollTunnel = async () => {
@@ -140,7 +134,7 @@ export default function RetailerVisionOS() {
           setTunnelBlobUrl(url);
         }
       } catch {
-        // Keeps fallback
+        // Silent fallback
       } finally {
         if (active && cameraMode === "TUNNEL_BLOB") setTimeout(pollTunnel, 100);
       }
@@ -149,38 +143,26 @@ export default function RetailerVisionOS() {
     return () => { active = false; };
   }, [cameraMode]);
 
-  // --- DISPATCH HANDLERS (WHATSAPP, SMS, AND SERVER BROADCAST) ---
-  const triggerWhatsAppAlert = (title: string, message: string) => {
-    const text = encodeURIComponent(
-      `🚨 *RETAILER VISION OS - URGENT ALERT*\n\n` +
-      `📌 *Event:* ${title}\n` +
-      `⚠️ *Details:* ${message}\n` +
-      `⏱️ *Time:* ${new Date().toLocaleTimeString()}\n\n` +
-      `👉 *Store Target:* +91-${MANAGER_PHONE}`
-    );
-    window.open(`https://wa.me/91${MANAGER_PHONE}?text=${text}`, "_blank");
-    notify(`WhatsApp dispatch window opened for +91-${MANAGER_PHONE}`);
-  };
-
-  const triggerSMSAlert = (title: string, message: string) => {
-    const text = encodeURIComponent(`STORE ALERT [${title}]: ${message} at ${new Date().toLocaleTimeString()}`);
-    window.open(`sms:+91${MANAGER_PHONE}?body=${text}`, "_blank");
-    notify(`SMS app opened for +91-${MANAGER_PHONE}`);
-  };
-
-  const triggerDualAlert = async (title: string, message: string) => {
-    notify(`Broadcasting Dual WhatsApp + SMS Alert to +91-${MANAGER_PHONE}...`);
+  // --- 🚀 AUTOMATED ALERT DISPATCHER (Calls Python Backend) ---
+  const triggerAutomatedAlert = async (title: string, msg: string, method: "WHATSAPP" | "SMS" | "BOTH") => {
+    notify(`Dispatching ${method} Alert to Edge Server...`);
     try {
-      await fetch(`${BACKEND_TUNNEL_URL}/notify-broadcast`, {
+      const response = await fetch(`${BACKEND_TUNNEL_URL}/trigger-alert`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "bypass-tunnel-reminder": "true" },
-        body: JSON.stringify({ title, message })
+        headers: {
+          "Content-Type": "application/json",
+          "bypass-tunnel-reminder": "true"
+        },
+        body: JSON.stringify({ title, message: msg, method })
       });
-    } catch {
-      // Local fallback
+      if (response.ok) {
+        notify(`✅ ${method} automation script triggered successfully!`);
+      } else {
+        notify(`⚠️ Failed to trigger ${method}. Server responded with error.`);
+      }
+    } catch (err) {
+      notify(`❌ Backend offline! Ensure python scan_bridge.py is running.`);
     }
-    // Launch WhatsApp directly so user sees immediate action
-    triggerWhatsAppAlert(title, message);
   };
 
   const handlePickReturn = (skuId: string, delta: number) => {
@@ -227,33 +209,36 @@ export default function RetailerVisionOS() {
 
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => triggerWhatsAppAlert(
+                onClick={() => triggerAutomatedAlert(
                   "QUEUE RUSH ALERT",
-                  `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3!`
+                  `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3!`,
+                  "WHATSAPP"
                 )}
                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
               >
-                <span>WhatsApp</span>
+                <span>Auto WhatsApp</span>
               </button>
 
               <button
-                onClick={() => triggerSMSAlert(
+                onClick={() => triggerAutomatedAlert(
                   "QUEUE RUSH ALERT",
-                  `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3!`
+                  `Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}) congested. Open Counter 3!`,
+                  "SMS"
                 )}
                 className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
               >
-                <span>SMS</span>
+                <span>Auto SMS</span>
               </button>
 
               <button
-                onClick={() => triggerDualAlert(
+                onClick={() => triggerAutomatedAlert(
                   "CRITICAL RUSH BROADCAST",
-                  `Bottleneck at Counter 1 (${counters.c1}) & Counter 2 (${counters.c2}). Deploy Counter 3 immediately.`
+                  `Bottleneck at C1 & C2. Deploy Counter 3 immediately.`,
+                  "BOTH"
                 )}
                 className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition"
               >
-                Dual Alert
+                Dual Automation
               </button>
 
               <button
@@ -278,19 +263,21 @@ export default function RetailerVisionOS() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => triggerWhatsAppAlert(
+                onClick={() => triggerAutomatedAlert(
                   "STORE DEPLETION REFILL",
-                  `Restock needed for: ${lowStockItems.map(i => `${i.slot} (${i.name})`).join(", ")}`
+                  `Restock needed for: ${lowStockItems.map(i => `${i.slot} (${i.name})`).join(", ")}`,
+                  "WHATSAPP"
                 )}
                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold whitespace-nowrap"
               >
-                WhatsApp Restock List
+                WA Restock List
               </button>
 
               <button
-                onClick={() => triggerSMSAlert(
+                onClick={() => triggerAutomatedAlert(
                   "STORE DEPLETION REFILL",
-                  `Restock needed for: ${lowStockItems.map(i => `${i.slot} (${i.name})`).join(", ")}`
+                  `Restock needed for: ${lowStockItems.map(i => `${i.slot} (${i.name})`).join(", ")}`,
+                  "SMS"
                 )}
                 className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold whitespace-nowrap"
               >
@@ -338,11 +325,11 @@ export default function RetailerVisionOS() {
 
         <div className="lg:col-span-3 flex justify-end">
           <button
-            onClick={() => triggerDualAlert("STORE AUDIT DISPATCH", "Manual store audit triggered. Systems operating normally.")}
+            onClick={() => triggerAutomatedAlert("STORE AUDIT", "Manual store audit triggered. Check edge camera feed.", "BOTH")}
             className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-950 to-slate-900 border border-indigo-700 text-right hover:border-indigo-500 transition"
           >
-            <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">Target Manager</span>
-            <span className="text-xs font-black text-indigo-300 tracking-wider">+91-{MANAGER_PHONE} ⚡</span>
+            <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">Automated Test Alert</span>
+            <span className="text-xs font-black text-indigo-300 tracking-wider">Trigger +91-{MANAGER_PHONE}</span>
           </button>
         </div>
       </header>
@@ -353,22 +340,22 @@ export default function RetailerVisionOS() {
         {/* LEFT COLUMN */}
         <div className="lg:col-span-7 space-y-4">
           
-          {/* Counter Queue Section with Direct WhatsApp / SMS Buttons */}
+          {/* Counter Queue Section */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue + Action</h3>
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => triggerWhatsAppAlert("COUNTER QUEUE STATUS", `C1: ${counters.c1}, C2: ${counters.c2}, C3: ${counters.c3Active ? "Active" : "Closed"}`)}
+                  onClick={() => triggerAutomatedAlert("QUEUE STATUS", `C1: ${counters.c1}, C2: ${counters.c2}`, "WHATSAPP")}
                   className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-[10px] text-emerald-300 font-semibold"
                 >
-                  WA Queue
+                  Auto WA
                 </button>
                 <button
-                  onClick={() => triggerSMSAlert("COUNTER QUEUE STATUS", `C1: ${counters.c1}, C2: ${counters.c2}, C3: ${counters.c3Active ? "Active" : "Closed"}`)}
+                  onClick={() => triggerAutomatedAlert("QUEUE STATUS", `C1: ${counters.c1}, C2: ${counters.c2}`, "SMS")}
                   className="px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-[10px] text-sky-300 font-semibold"
                 >
-                  SMS Queue
+                  Auto SMS
                 </button>
               </div>
             </div>
@@ -398,12 +385,12 @@ export default function RetailerVisionOS() {
             </div>
           </div>
 
-          {/* Products Left Action + Scrollable Cart List with Individual Alert Buttons */}
+          {/* Products Left Action + Scrollable Cart List */}
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Products Left Action (Shelf Slots)</h3>
-                <p className="text-[11px] text-slate-500">Scroll to view stock & dispatch individual shelf replenishment alerts</p>
+                <p className="text-[11px] text-slate-500">Scroll to view stock & dispatch individual shelf alerts</p>
               </div>
               <span className="text-xs font-bold text-amber-400 bg-amber-950/50 px-2 py-1 rounded border border-amber-800">
                 FIFO Monitored
@@ -430,29 +417,21 @@ export default function RetailerVisionOS() {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {/* Individual WhatsApp Alert Button */}
                       {isLow && (
                         <button
-                          onClick={() => triggerWhatsAppAlert(
-                            `REFILL ${item.slot}`,
-                            `${item.name} is low on stock (${remaining}/${item.capacity} left). Please restock now.`
-                          )}
+                          onClick={() => triggerAutomatedAlert(`REFILL ${item.slot}`, `${item.name} is low on stock.`, "WHATSAPP")}
                           className="px-2 py-1 bg-emerald-950 border border-emerald-700 text-emerald-300 font-bold rounded text-[10px] hover:bg-emerald-900"
                         >
-                          WA
+                          Auto WA
                         </button>
                       )}
 
-                      {/* Individual SMS Alert Button */}
                       {isLow && (
                         <button
-                          onClick={() => triggerSMSAlert(
-                            `REFILL ${item.slot}`,
-                            `${item.name} is low on stock (${remaining}/${item.capacity} left). Restock shelf.`
-                          )}
+                          onClick={() => triggerAutomatedAlert(`REFILL ${item.slot}`, `${item.name} is low on stock.`, "SMS")}
                           className="px-2 py-1 bg-sky-950 border border-sky-700 text-sky-300 font-bold rounded text-[10px] hover:bg-sky-900"
                         >
-                          SMS
+                          Auto SMS
                         </button>
                       )}
 
@@ -511,7 +490,7 @@ export default function RetailerVisionOS() {
 
             {/* Live Video / Canvas Container */}
             <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-slate-800 flex items-center justify-center shadow-inner">
-              {/* Mode 1: Direct Browser Webcam + Canvas Thermal Shader (Zero Fail) */}
+              {/* Mode 1: Direct Browser Webcam + Canvas Thermal Shader */}
               {cameraMode === "DIRECT_CAM" && (
                 <div className="relative w-full h-full">
                   <video ref={videoRef} className="hidden" playsInline muted autoPlay />
@@ -576,24 +555,26 @@ export default function RetailerVisionOS() {
                   <div className="flex items-center gap-1.5">
                     {spot.status === "HIGH_DWELL_ALERT" && (
                       <button
-                        onClick={() => triggerWhatsAppAlert(
+                        onClick={() => triggerAutomatedAlert(
                           "HIGH DWELL CONGESTION",
-                          `Unusual high customer dwell time (${spot.dwell}s) at ${spot.shelf}. Floor inspection advised.`
+                          `Unusual high dwell time (${spot.dwell}s) at ${spot.shelf}. Inspect shelf.`,
+                          "WHATSAPP"
                         )}
                         className="px-2 py-1 bg-red-950 border border-red-700 text-red-300 font-bold rounded text-[10px] hover:bg-red-900"
                       >
-                        WA Alert
+                        Auto WA
                       </button>
                     )}
                     {spot.status === "HIGH_DWELL_ALERT" && (
                       <button
-                        onClick={() => triggerSMSAlert(
+                        onClick={() => triggerAutomatedAlert(
                           "HIGH DWELL CONGESTION",
-                          `High customer dwell time (${spot.dwell}s) at ${spot.shelf}. Inspect shelf.`
+                          `High customer dwell time (${spot.dwell}s) at ${spot.shelf}. Inspect shelf.`,
+                          "SMS"
                         )}
                         className="px-2 py-1 bg-sky-950 border border-sky-700 text-sky-300 font-bold rounded text-[10px] hover:bg-sky-900"
                       >
-                        SMS
+                        Auto SMS
                       </button>
                     )}
                   </div>
