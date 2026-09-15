@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
 const MANAGER_PHONE = "9472948984";
-const BACKEND_TUNNEL_URL = "https://yummy-signs-relate.loca.lt"; // Apne localtunnel ka naya URL yahan daalein
+const BACKEND_TUNNEL_URL = " https://smooth-pets-divide.loca.lt"; // Apne localtunnel ka naya URL yahan daalein
 
 const STORE_SKUS = [
   { id: "SKU-3059", barcode: "8905650133059", name: "boAt Wave Smartwatch", slot: "Shelf A-01", capacity: 20, price: 1499 },
