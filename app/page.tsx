@@ -1,7 +1,7 @@
-
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const MANAGER_PHONE = "9472948984";
 const NTFY_TOPIC = `retail-vision-${MANAGER_PHONE}`;
@@ -42,35 +42,30 @@ const MASTER_SKUS: SKUItem[] = [
 ];
 
 export default function ARISMasterOS() {
+  const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState<"home" | "stock" | "dwell" | "billing">("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Live Camera Stream State
   const [dwellStreamBlob, setDwellStreamBlob] = useState<string | null>(null);
   const [streamConnected, setStreamConnected] = useState(false);
 
-  // Barcode Viewfinder Modal State
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<"REFILL" | "CHECKOUT">("CHECKOUT");
   const [isScanning, setIsScanning] = useState(false);
 
-  // Dynamic Variable Footfall
   const [footfall, setFootfall] = useState({ in: 86, out: 54 });
   const [lastEvent, setLastEvent] = useState<"IN" | "OUT" | null>(null);
   const activeInStore = Math.max(0, footfall.in - footfall.out);
 
-  // Queue Status
   const [counters, setCounters] = useState({ c1: 5, c2: 4, c3Active: false });
   const isRushAlert = counters.c1 >= 4 && counters.c2 >= 4 && !counters.c3Active;
 
-  // Inventory & Cart
   const [skus, setSkus] = useState<SKUItem[]>(MASTER_SKUS);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Psychological Dwell Data from Python Backend
   const [insights, setInsights] = useState({
     person_detected: false,
     dwell_seconds: 0.0,
@@ -85,6 +80,10 @@ export default function ARISMasterOS() {
     { text: "Dual-Mode Barcode Scanner Ready (Phone DroidCam Link)", time: "1m ago" },
     { text: "FIFO Depletion monitor: Critical items listed below 70%", time: "3m ago" },
   ]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const playTone = (freq = 880, type: OscillatorType = "sine", duration = 0.15) => {
     try {
@@ -107,7 +106,6 @@ export default function ARISMasterOS() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // Variable Footfall Engine
   useEffect(() => {
     const timer = setInterval(() => {
       setFootfall(prev => {
@@ -130,7 +128,6 @@ export default function ARISMasterOS() {
     return () => clearInterval(timer);
   }, []);
 
-  // Poll Psychological Stream
   useEffect(() => {
     let active = true;
     const interval = setInterval(async () => {
@@ -147,7 +144,6 @@ export default function ARISMasterOS() {
     return () => { active = false; clearInterval(interval); };
   }, []);
 
-  // Live Camera Stream Consumer for Dwell View
   useEffect(() => {
     let active = true;
     const fetchStreamFrame = async () => {
@@ -184,7 +180,6 @@ export default function ARISMasterOS() {
     };
   }, [activeView]);
 
-  // Alert Dispatcher via ntfy
   const triggerNtfyAlert = async (title: string, msg: string) => {
     playTone(320, "sawtooth", 0.3);
     setTimeout(() => playTone(240, "sawtooth", 0.35), 180);
@@ -211,7 +206,6 @@ export default function ARISMasterOS() {
     }
   };
 
-  // --- DUAL-MODE BARCODE WORKFLOW ---
   const startScannerModal = async (mode: "REFILL" | "CHECKOUT") => {
     setScanMode(mode);
     setScannerOpen(true);
@@ -290,7 +284,6 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
-  // --- NATIVE PDF EXPORT ENGINES ---
   const saveInvoiceAsPDF = () => {
     const totalAmount = Object.entries(cart).reduce((acc, [id, qty]) => {
       const item = skus.find(s => s.id === id);
@@ -436,7 +429,7 @@ export default function ARISMasterOS() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050811] text-slate-100 font-sans p-3 lg:p-5 space-y-4 selection:bg-indigo-600">
+    <div className="min-h-screen bg-[#030712] text-slate-100 font-sans p-3 lg:p-5 space-y-4 selection:bg-indigo-600">
       
       {toast && (
         <div className="fixed top-5 right-5 z-[999] bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-2xl animate-bounce border border-indigo-400">
@@ -445,26 +438,27 @@ export default function ARISMasterOS() {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. TOP-LEVEL ABSOLUTELY ISOLATED HAMBURGER DRAWER (ZERO BLEED / NO OVERLAP) */}
+      {/* 1. DIRECT-TO-BODY PORTAL FOR HAMBURGER DRAWER (ZERO BLEED / NO OVERLAP) */}
       {/* ========================================================================= */}
-      {menuOpen && (
-        <>
-          {/* Heavy Backdrop that completely blacks out background text */}
+      {mounted && menuOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] flex">
+          {/* Pitch black backdrop */}
           <div 
             onClick={() => setMenuOpen(false)} 
-            className="fixed inset-0 bg-black/90 z-[500] cursor-pointer"
+            className="fixed inset-0 bg-black/90 cursor-pointer"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.9)" }}
           />
 
-          {/* 100% Solid Non-Transparent Drawer Box */}
+          {/* 100% Solid Hex Opaque Drawer */}
           <div 
-            style={{ backgroundColor: "#0b0f19", opacity: 1 }}
-            className="fixed top-16 left-4 z-[501] w-80 border-2 border-indigo-500/60 rounded-2xl p-5 shadow-[0_25px_60px_rgba(0,0,0,1)] space-y-3"
+            style={{ backgroundColor: "#0f172a", opacity: 1, zIndex: 100000 }}
+            className="relative top-16 left-4 w-80 h-auto border-2 border-indigo-500/80 rounded-2xl p-5 shadow-[0_25px_60px_rgba(0,0,0,1)] space-y-3"
           >
-            <div className="flex justify-between items-center pb-2.5 border-b border-slate-800">
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-700">
               <span className="text-xs font-mono uppercase text-indigo-400 font-black tracking-wider">ARIS Modules</span>
               <button 
                 onClick={() => setMenuOpen(false)} 
-                className="text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold"
+                className="text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 text-xs font-bold"
               >
                 ✕ Close
               </button>
@@ -473,7 +467,7 @@ export default function ARISMasterOS() {
             <div className="space-y-2 pt-1">
               <button 
                 onClick={() => { playTone(600, "sine", 0.05); setActiveView("home"); setMenuOpen(false); }} 
-                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "home" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-950 border-slate-800 hover:border-slate-700"}`}
+                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "home" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-900 border-slate-700 hover:border-slate-600"}`}
               >
                 <span className="text-base">🏠</span>
                 <div>
@@ -484,7 +478,7 @@ export default function ARISMasterOS() {
 
               <button 
                 onClick={() => { playTone(600, "sine", 0.05); setActiveView("stock"); setMenuOpen(false); }} 
-                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "stock" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-950 border-slate-800 hover:border-slate-700"}`}
+                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "stock" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-900 border-slate-700 hover:border-slate-600"}`}
               >
                 <span className="text-base">📦</span>
                 <div>
@@ -495,7 +489,7 @@ export default function ARISMasterOS() {
 
               <button 
                 onClick={() => { playTone(600, "sine", 0.05); setActiveView("dwell"); setMenuOpen(false); }} 
-                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "dwell" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-950 border-slate-800 hover:border-slate-700"}`}
+                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "dwell" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-900 border-slate-700 hover:border-slate-600"}`}
               >
                 <span className="text-base">🧠</span>
                 <div>
@@ -506,7 +500,7 @@ export default function ARISMasterOS() {
 
               <button 
                 onClick={() => { playTone(600, "sine", 0.05); setActiveView("billing"); setMenuOpen(false); }} 
-                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "billing" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-950 border-slate-800 hover:border-slate-700"}`}
+                className={`w-full text-left px-3.5 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 border ${activeView === "billing" ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/50" : "text-slate-200 bg-slate-900 border-slate-700 hover:border-slate-600"}`}
               >
                 <span className="text-base">💳</span>
                 <div>
@@ -516,24 +510,26 @@ export default function ARISMasterOS() {
               </button>
             </div>
           </div>
-        </>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
-      {/* 2. TOP-LEVEL ABSOLUTELY ISOLATED BARCODE MODAL (FIXES COLLAPSE & CLASH)    */}
+      {/* 2. DIRECT-TO-BODY PORTAL FOR BARCODE MODAL (PREVENTS SQUEEZE & CLASH)    */}
       {/* ========================================================================= */}
-      {scannerOpen && (
-        <>
+      {mounted && scannerOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div 
             onClick={() => setScannerOpen(false)} 
-            className="fixed inset-0 bg-black/90 z-[600] cursor-pointer"
+            className="fixed inset-0 bg-black/90 cursor-pointer"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.9)" }}
           />
 
           <div 
-            style={{ backgroundColor: "#0b0f19", opacity: 1 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[601] w-[92vw] max-w-lg border-2 border-indigo-500/70 rounded-3xl p-6 shadow-[0_30px_90px_rgba(0,0,0,1)] space-y-4"
+            style={{ backgroundColor: "#0f172a", opacity: 1, zIndex: 100000 }}
+            className="relative w-[94vw] max-w-lg border-2 border-indigo-500/70 rounded-3xl p-6 shadow-[0_30px_90px_rgba(0,0,0,1)] space-y-4"
           >
-            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-700">
               <div className="flex items-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${scanMode === "REFILL" ? "bg-amber-500" : "bg-emerald-500"} animate-ping`} />
                 <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
@@ -542,7 +538,7 @@ export default function ARISMasterOS() {
               </div>
               <button 
                 onClick={() => setScannerOpen(false)} 
-                className="text-slate-300 hover:text-white px-3 py-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold"
+                className="text-slate-300 hover:text-white px-3 py-1 rounded-xl bg-slate-800 border border-slate-600 text-xs font-bold"
               >
                 ✕ Close
               </button>
@@ -550,8 +546,6 @@ export default function ARISMasterOS() {
 
             {/* Guaranteed Viewfinder: Strictly Non-Collapsible Min-Height */}
             <div className="w-full min-h-[260px] h-[260px] bg-black rounded-2xl overflow-hidden relative border-2 border-indigo-500/60 flex items-center justify-center flex-shrink-0 shadow-inner">
-              
-              {/* Aiming Frame */}
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                 <div className="w-56 h-32 border-2 border-dashed border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(52,211,153,0.6)]">
                   <div className="w-full h-0.5 bg-rose-500 absolute top-1/2 -translate-y-1/2 animate-pulse shadow-[0_0_12px_rgba(244,63,94,1)]" />
@@ -561,7 +555,6 @@ export default function ARISMasterOS() {
                 </span>
               </div>
 
-              {/* Status Label */}
               <div className="flex flex-col items-center justify-center space-y-2 text-center p-4">
                 <div className="w-9 h-9 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
                 <span className="text-xs font-mono text-slate-200 font-bold">
@@ -573,21 +566,20 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            {/* Quick Test Simulation */}
-            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2">
+            <div className="bg-slate-900 p-3 rounded-2xl border border-slate-700 space-y-2">
               <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold text-center">
                 Quick Test SKU Triggers (Click to simulate instant scan):
               </span>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <button
                   onClick={() => handleDetectedBarcode("8901491101837")}
-                  className="p-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-200 font-bold text-[11px] truncate active:scale-95 transition"
+                  className="p-2.5 rounded-xl bg-slate-800 border border-slate-600 hover:border-amber-500 text-slate-200 font-bold text-[11px] truncate active:scale-95 transition"
                 >
                   🍪 Lays Chips (Shelf C-04)
                 </button>
                 <button
                   onClick={() => handleDetectedBarcode("8905650133059")}
-                  className="p-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-indigo-500 text-slate-200 font-bold text-[11px] truncate active:scale-95 transition"
+                  className="p-2.5 rounded-xl bg-slate-800 border border-slate-600 hover:border-indigo-500 text-slate-200 font-bold text-[11px] truncate active:scale-95 transition"
                 >
                   ⌚ boAt Watch (Shelf A-01)
                 </button>
@@ -600,15 +592,16 @@ export default function ARISMasterOS() {
                 : "Product will deduct 1 unit from shelf inventory and add directly to bill."}
             </div>
           </div>
-        </>
+        </div>,
+        document.body
       )}
 
       {/* ================= TOP HEADER NAV ================= */}
-      <nav className="bg-[#0b0f19] border border-slate-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xl">
+      <nav className="bg-[#0f172a] border border-slate-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xl">
         <div className="flex items-center gap-3">
           <button
             onClick={() => { playTone(500, "sine", 0.05); setMenuOpen(!menuOpen); }}
-            className="w-10 h-10 rounded-xl bg-slate-950 border border-indigo-500/40 hover:border-indigo-400 flex flex-col items-center justify-center gap-1.5 transition shadow-inner active:scale-95"
+            className="w-10 h-10 rounded-xl bg-slate-900 border border-indigo-500/40 hover:border-indigo-400 flex flex-col items-center justify-center gap-1.5 transition shadow-inner active:scale-95"
             title="Open Menu"
           >
             <span className="w-5 h-0.5 bg-indigo-400 rounded-full" />
@@ -621,7 +614,6 @@ export default function ARISMasterOS() {
               <span>ARIS</span>
               <span className="text-[10px] text-indigo-400 font-normal hidden sm:inline">(AUTOMATED RETAIL INTELLIGENCE SYSTEM)</span>
             </h1>
-            {/* UPDATED MOTIVE / SLOGAN */}
             <p className="text-[10px] text-indigo-300 font-medium">
               Dynamic Vision Intelligence • Autonomous Footfall & Stock Synchronization
             </p>
@@ -638,10 +630,10 @@ export default function ARISMasterOS() {
 
       {/* ================= VIEW: MAIN HOMEPAGE DASHBOARD ================= */}
       {activeView === "home" && (
-        <div className="space-y-4 animate-fadeIn">
+        <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
-              <div className={`bg-[#0b0f19] border ${lastEvent === "IN" ? "border-emerald-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
+              <div className={`bg-[#0f172a] border ${lastEvent === "IN" ? "border-emerald-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                   Cam In
@@ -650,7 +642,7 @@ export default function ARISMasterOS() {
                 <span className="text-[9px] text-slate-400 font-mono block">Optical Gate</span>
               </div>
 
-              <div className={`bg-[#0b0f19] border ${lastEvent === "OUT" ? "border-rose-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
+              <div className={`bg-[#0f172a] border ${lastEvent === "OUT" ? "border-rose-500 scale-[1.02]" : "border-slate-800"} p-3 rounded-2xl text-center relative overflow-hidden transition-all duration-300`}>
                 <span className="text-[10px] uppercase font-bold text-rose-400 flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
                   Exit Out
@@ -659,14 +651,14 @@ export default function ARISMasterOS() {
                 <span className="text-[9px] text-slate-400 font-mono block">Checkout Gate</span>
               </div>
 
-              <div className="bg-[#0b0f19] border border-indigo-900/60 p-3 rounded-2xl text-center relative overflow-hidden">
+              <div className="bg-[#0f172a] border border-indigo-900/60 p-3 rounded-2xl text-center relative overflow-hidden">
                 <span className="text-[10px] uppercase font-bold text-indigo-300 block">Active Shoppers</span>
                 <span className="text-2xl lg:text-3xl font-black text-indigo-400">{activeInStore}</span>
                 <span className="text-[9px] text-indigo-400/70 font-mono block">In Floor Zone</span>
               </div>
             </div>
 
-            <div className="lg:col-span-7 bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3">
+            <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Counter Queue Monitoring & Alerts</h3>
                 {isRushAlert && (
@@ -677,7 +669,7 @@ export default function ARISMasterOS() {
               </div>
 
               <div className="grid grid-cols-3 gap-2.5 items-center">
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1">
                   <div className="flex justify-between text-[10px]">
                     <span className="text-slate-400 font-bold">Counter 1</span>
                     <span className="text-white font-mono font-bold">{counters.c1} in Line</span>
@@ -687,7 +679,7 @@ export default function ARISMasterOS() {
                   </div>
                 </div>
 
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1">
                   <div className="flex justify-between text-[10px]">
                     <span className="text-slate-400 font-bold">Counter 2</span>
                     <span className="text-white font-mono font-bold">{counters.c2} in Line</span>
@@ -727,7 +719,7 @@ export default function ARISMasterOS() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-7 bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl space-y-3">
+            <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Updation Store Activity</h3>
                 <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
@@ -738,7 +730,7 @@ export default function ARISMasterOS() {
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {activities.map((act, idx) => (
-                  <div key={idx} className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl text-xs flex justify-between items-center">
+                  <div key={idx} className="p-3 bg-slate-900 border border-slate-800/80 rounded-xl text-xs flex justify-between items-center">
                     <span className="text-slate-200">{act.text}</span>
                     <span className="text-[10px] font-mono text-slate-500 whitespace-nowrap ml-2">{act.time}</span>
                   </div>
@@ -746,7 +738,7 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            <div className="lg:col-span-5 bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-5 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
@@ -762,7 +754,7 @@ export default function ARISMasterOS() {
                   {lowStockItems.slice(0, 5).map(item => {
                     const ratio = Math.round((item.stock / item.capacity) * 100);
                     return (
-                      <div key={item.id} className="p-3 bg-slate-950 border border-rose-900/60 rounded-xl flex items-center justify-between text-xs hover:border-rose-600 transition">
+                      <div key={item.id} className="p-3 bg-slate-900 border border-rose-900/60 rounded-xl flex items-center justify-between text-xs hover:border-rose-600 transition">
                         <div>
                           <span className="font-bold text-white block">{item.name}</span>
                           <span className="text-[10px] text-slate-400 font-mono">
@@ -800,8 +792,8 @@ export default function ARISMasterOS() {
 
       {/* ================= OPTION 1: STOCK SHELF DATA ================= */}
       {activeView === "stock" && (
-        <div className="space-y-4 animate-fadeIn">
-          <div className="bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="space-y-4">
+          <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-base font-black text-white">1) Stock Shelf Data & Live SKU Inventory (50+ SKUs)</h2>
               <p className="text-xs text-slate-400">Live capacity monitoring across aisles. Automated alert state when capacity drops below 70%.</p>
@@ -813,7 +805,7 @@ export default function ARISMasterOS() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search SKU..."
-                className="bg-slate-950 border border-slate-700 px-3 py-1.5 text-xs rounded-xl text-white w-full sm:w-48"
+                className="bg-slate-900 border border-slate-700 px-3 py-1.5 text-xs rounded-xl text-white w-full sm:w-48"
               />
               <button 
                 onClick={() => { playTone(400, "sine", 0.05); setActiveView("home"); }} 
@@ -824,10 +816,10 @@ export default function ARISMasterOS() {
             </div>
           </div>
 
-          <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto max-h-[65vh]">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800 sticky top-0 z-10">
+                <thead className="bg-slate-900 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800 sticky top-0 z-10">
                   <tr>
                     <th className="p-3.5">SKU ID & Description</th>
                     <th className="p-3.5">Category</th>
@@ -843,7 +835,7 @@ export default function ARISMasterOS() {
                     const isLow = ratio < 0.7;
 
                     return (
-                      <tr key={item.id} className="hover:bg-slate-950/50 transition">
+                      <tr key={item.id} className="hover:bg-slate-900/50 transition">
                         <td className="p-3.5">
                           <div className="font-bold text-white">{item.name}</div>
                           <div className="text-[10px] font-mono text-slate-500">{item.id} • Barcode: {item.barcode}</div>
@@ -886,8 +878,8 @@ export default function ARISMasterOS() {
 
       {/* ================= OPTION 2: DWELL TIME & PSYCHOLOGICAL DATA ================= */}
       {activeView === "dwell" && (
-        <div className="space-y-4 animate-fadeIn">
-          <div className="bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="space-y-4">
+          <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-base font-black text-white">2) Dwell Time Calculation & Psychological Heatwave</h2>
               <p className="text-xs text-slate-400">Thermal live stream, customer stop duration, shelf attraction estimates, and PDF export.</p>
@@ -910,7 +902,7 @@ export default function ARISMasterOS() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-7 bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl space-y-3">
+            <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Live Thermal Heatwave Camera Feed</h3>
                 <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800 flex items-center gap-1">
@@ -933,7 +925,7 @@ export default function ARISMasterOS() {
             </div>
 
             <div className="lg:col-span-5 space-y-4">
-              <div className="bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl space-y-3 shadow-xl">
+              <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl space-y-3 shadow-xl">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-white">Live Customer Psychological Estimates</h3>
                   <span className="text-xs font-mono px-2.5 py-1 rounded-xl bg-indigo-950 text-indigo-300 font-bold border border-indigo-800">
@@ -942,15 +934,15 @@ export default function ARISMasterOS() {
                 </div>
 
                 <div className="space-y-2 text-xs">
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between">
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex justify-between">
                     <span className="text-slate-400">Peak Stop Zone:</span>
                     <span className="font-bold text-white">{insights.zone}</span>
                   </div>
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between">
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex justify-between">
                     <span className="text-slate-400">Attracted By Offer / SKU:</span>
                     <span className="font-mono font-bold text-amber-400">{insights.active_sku}</span>
                   </div>
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between">
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex justify-between">
                     <span className="text-slate-400">Estimated Intent State:</span>
                     <span className="font-bold text-emerald-400">{insights.intent_state}</span>
                   </div>
@@ -968,8 +960,8 @@ export default function ARISMasterOS() {
 
       {/* ================= OPTION 3: COUNTER BOY BILLING & DUAL BARCODE WORKFLOW ================= */}
       {activeView === "billing" && (
-        <div className="space-y-4 animate-fadeIn">
-          <div className="bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="space-y-4">
+          <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-base font-black text-white">3) Counter Boy Billing & Dual-Mode Barcode Workflow</h2>
               <p className="text-xs text-slate-400">Same barcode scanner works in 2 modes: Refill shelf lot (notifies manager) OR Checkout sold product (auto-bills).</p>
@@ -982,14 +974,14 @@ export default function ARISMasterOS() {
             </button>
           </div>
 
-          <div className="bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <input
                 type="text"
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 placeholder="Manual SKU or Barcode input..."
-                className="bg-slate-950 border border-slate-700 px-3 py-2 text-xs rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-white w-full sm:w-60"
+                className="bg-slate-900 border border-slate-700 px-3 py-2 text-xs rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-white w-full sm:w-60"
               />
               <button
                 onClick={() => {
@@ -1029,11 +1021,11 @@ export default function ARISMasterOS() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-8 bg-[#0b0f19] border border-slate-800 p-4 rounded-2xl space-y-3">
+            <div className="lg:col-span-8 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">50+ SKUs Quick Select Catalog</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
                 {skus.slice(0, 16).map(item => (
-                  <div key={item.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2 text-xs">
+                  <div key={item.id} className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between gap-2 text-xs">
                     <div>
                       <span className="font-bold text-white block">{item.name}</span>
                       <span className="text-[10px] font-mono text-slate-400">{item.slot} • ₹{item.price} • Stock: {item.stock}</span>
@@ -1049,7 +1041,7 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            <div className="lg:col-span-4 bg-[#0b0f19] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between space-y-4">
+            <div className="lg:col-span-4 bg-[#0f172a] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between space-y-4">
               <div>
                 <h3 className="text-sm font-black text-white pb-3 border-b border-slate-800">Active Bill & Invoicing</h3>
 
