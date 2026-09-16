@@ -619,7 +619,7 @@ export default function ARISMasterOS() {
   const pieSlices = renderPieSlices();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#070b14] via-[#0b1329] to-[#04060b] text-slate-100 font-sans p-3 lg:p-6 space-y-5 selection:bg-indigo-600">
+    <div className="min-h-screen bg-gradient-to-br from-[#090d16] via-[#0f172a] to-[#04060b] text-slate-100 font-sans p-3 lg:p-6 space-y-5 selection:bg-indigo-600">
       
       {toast && (
         <div className="fixed top-5 right-5 z-[999] bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-2xl animate-bounce border border-indigo-400">
