@@ -138,7 +138,6 @@ export default function ARISMasterOS() {
           const nextOut = prev.out + 1;
           setLastEvent("OUT");
 
-          // Sync an exit checkout sale with random quick-moving retail item
           const categories = ["Snacks", "Dairy", "Essentials", "Beverages", "Books"];
           const pickedCat = categories[Math.floor(Math.random() * categories.length)];
           const addedVal = Math.floor(Math.random() * 80) + 20;
@@ -808,16 +807,6 @@ export default function ARISMasterOS() {
             </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          <span className="px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-600/70 text-emerald-300 text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            VISION ACTIVE
-          </span>
-          <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 shadow-inner">
-            👤
-          </div>
-        </div>
       </nav>
 
       {/* ================= VIEW: MAIN HOMEPAGE DASHBOARD ================= */}
@@ -946,65 +935,7 @@ export default function ARISMasterOS() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* ================= LIVE SALES PIE CHART (MATCHING IMAGE LAYOUT) ================= */}
-            <div className="lg:col-span-7 bg-[#0b1329] border border-slate-800/80 p-5 rounded-2xl space-y-4 shadow-lg">
-              <div className="flex justify-between items-center pb-2.5 border-b border-slate-800/80">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                    Live Daily Sales & Telemetry Breakdown
-                  </h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Real-time category telemetry synced with optical checkout register</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-mono font-black text-white">₹{totalSalesRevenue.toLocaleString("en-IN")}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                {/* SVG Pie Chart Canvas (Exact Image Donut Style) */}
-                <div className="sm:col-span-6 flex justify-center items-center relative">
-                  <svg viewBox="0 0 200 200" className="w-44 h-44 drop-shadow-[0_0_20px_rgba(56,189,248,0.25)] transition-all duration-700">
-                    {pieSlices.map((slice, idx) => (
-                      <path
-                        key={idx}
-                        d={slice.pathData}
-                        fill={slice.color}
-                        stroke="#0b1329"
-                        strokeWidth="3"
-                        className="transition-all duration-700 hover:opacity-85 cursor-pointer"
-                      >
-                        <title>{`${slice.category}: ₹${slice.value} (${slice.percentage}%)`}</title>
-                      </path>
-                    ))}
-                    {/* Inner Donut Center */}
-                    <circle cx="100" cy="100" r="44" fill="#0b1329" stroke="#1e293b" strokeWidth="2" />
-                    <text x="100" y="92" textAnchor="middle" fill="#94a3b8" fontSize="8" fontWeight="bold" fontFamily="monospace">TOTAL REV</text>
-                    <text x="100" y="108" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="900" fontFamily="monospace">₹{totalSalesRevenue}</text>
-                    <text x="100" y="122" textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold" fontFamily="monospace">(Live)</text>
-                  </svg>
-                </div>
-
-                {/* Category Legend & Proportions (Matching Image Bar Meters) */}
-                <div className="sm:col-span-6 space-y-2 max-h-52 overflow-y-auto pr-1">
-                  {pieSlices.map((item, index) => (
-                    <div key={index} className="p-2 bg-slate-950/70 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs hover:border-slate-700 transition">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
-                        <span className="text-slate-200 font-bold">{item.category} <span className="text-[10px] text-slate-400 font-mono">({item.percentage}%)</span></span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 bg-slate-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, item.percentage * 2)}%`, backgroundColor: item.color }} />
-                        </div>
-                        <span className="font-mono text-white font-bold">₹{item.value}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* FIFO LOW STOCK ALERTS TABLE (MATCHING IMAGE DESIGN) */}
+            {/* FIFO LOW STOCK ALERTS (ON LEFT) */}
             <div className="lg:col-span-5 bg-[#0b1329] border border-slate-800/80 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-lg">
               <div>
                 <div className="flex justify-between items-center border-b border-slate-800/60 pb-2">
@@ -1056,6 +987,65 @@ export default function ARISMasterOS() {
                 </button>
               </div>
             </div>
+
+            {/* LIVE SALES PIE CHART (ON RIGHT) */}
+            <div className="lg:col-span-7 bg-[#0b1329] border border-slate-800/80 p-5 rounded-2xl space-y-4 shadow-lg">
+              <div className="flex justify-between items-center pb-2.5 border-b border-slate-800/80">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                    Live Daily Sales & Telemetry Breakdown
+                  </h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Real-time category telemetry synced with optical checkout register</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono font-black text-white">₹{totalSalesRevenue.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                {/* SVG Pie Chart Canvas */}
+                <div className="sm:col-span-6 flex justify-center items-center relative">
+                  <svg viewBox="0 0 200 200" className="w-44 h-44 drop-shadow-[0_0_20px_rgba(56,189,248,0.25)] transition-all duration-700">
+                    {pieSlices.map((slice, idx) => (
+                      <path
+                        key={idx}
+                        d={slice.pathData}
+                        fill={slice.color}
+                        stroke="#0b1329"
+                        strokeWidth="3"
+                        className="transition-all duration-700 hover:opacity-85 cursor-pointer"
+                      >
+                        <title>{`${slice.category}: ₹${slice.value} (${slice.percentage}%)`}</title>
+                      </path>
+                    ))}
+                    {/* Inner Donut Center */}
+                    <circle cx="100" cy="100" r="44" fill="#0b1329" stroke="#1e293b" strokeWidth="2" />
+                    <text x="100" y="92" textAnchor="middle" fill="#94a3b8" fontSize="8" fontWeight="bold" fontFamily="monospace">TOTAL REV</text>
+                    <text x="100" y="108" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="900" fontFamily="monospace">₹{totalSalesRevenue}</text>
+                    <text x="100" y="122" textAnchor="middle" fill="#38bdf8" fontSize="8" fontWeight="bold" fontFamily="monospace">(Live)</text>
+                  </svg>
+                </div>
+
+                {/* Category Legend & Proportions */}
+                <div className="sm:col-span-6 space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {pieSlices.map((item, index) => (
+                    <div key={index} className="p-2 bg-slate-950/70 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs hover:border-slate-700 transition">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
+                        <span className="text-slate-200 font-bold">{item.category} <span className="text-[10px] text-slate-400 font-mono">({item.percentage}%)</span></span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 bg-slate-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, item.percentage * 2)}%`, backgroundColor: item.color }} />
+                        </div>
+                        <span className="font-mono text-white font-bold">₹{item.value}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
