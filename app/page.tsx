@@ -81,14 +81,14 @@ export default function ARISMasterOS() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Category-wise Sales Accumulator for Dynamic Pie Chart
+  // Category-wise Continuous Live Sales
   const [categorySales, setCategorySales] = useState<Record<string, number>>({
-    Snacks: 380,
+    Snacks: 420,
     Gadgets: 1499,
-    Dairy: 296,
-    Essentials: 595,
+    Dairy: 370,
+    Essentials: 690,
     Lighting: 1000,
-    Books: 298
+    Books: 447
   });
 
   const [insights, setInsights] = useState({
@@ -125,7 +125,7 @@ export default function ARISMasterOS() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // 1. Natural In/Out Footfall Fluctuations
+  // 1. Natural In/Out Footfall Fluctuations + Synced Checkout Telemetry
   useEffect(() => {
     const footfallTimer = setInterval(() => {
       setFootfall(prev => {
@@ -137,6 +137,17 @@ export default function ARISMasterOS() {
         } else if (rand < 0.35 && (prev.in - prev.out) > 5) {
           const nextOut = prev.out + 1;
           setLastEvent("OUT");
+
+          // Sync an exit checkout sale with random quick-moving retail item
+          const categories = ["Snacks", "Dairy", "Essentials", "Beverages", "Books"];
+          const pickedCat = categories[Math.floor(Math.random() * categories.length)];
+          const addedVal = Math.floor(Math.random() * 80) + 20;
+
+          setCategorySales(cs => ({
+            ...cs,
+            [pickedCat]: (cs[pickedCat] || 0) + addedVal
+          }));
+
           return { ...prev, out: nextOut };
         }
         return prev;
@@ -147,7 +158,28 @@ export default function ARISMasterOS() {
     return () => clearInterval(footfallTimer);
   }, []);
 
-  // 2. Dynamic Live Queue Balancing (>5 Alert Engine)
+  // 2. CONTINUOUS INDEPENDENT LIVE PIE CHART TELEMETRY ENGINE
+  useEffect(() => {
+    const pieStreamTimer = setInterval(() => {
+      const pool = [
+        { cat: "Snacks", val: 20 },
+        { cat: "Dairy", val: 74 },
+        { cat: "Essentials", val: 115 },
+        { cat: "Groceries", val: 35 },
+        { cat: "Snacks", val: 96 }
+      ];
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+
+      setCategorySales(prev => ({
+        ...prev,
+        [pick.cat]: (prev[pick.cat] || 0) + pick.val
+      }));
+    }, 4200);
+
+    return () => clearInterval(pieStreamTimer);
+  }, []);
+
+  // 3. Dynamic Live Queue Balancing (>5 Alert Engine)
   useEffect(() => {
     const queueTimer = setInterval(() => {
       setCounters(prev => {
@@ -304,8 +336,7 @@ export default function ARISMasterOS() {
         playTone(850, "sine", 0.15);
         setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
         setSkus(prev => prev.map(s => s.id === item.id ? { ...s, stock: Math.max(0, s.stock - 1) } : s));
-        
-        // Dynamically increment Category Pie Chart Sales
+
         setCategorySales(prev => ({
           ...prev,
           [item.category]: (prev[item.category] || 0) + item.price
@@ -351,7 +382,7 @@ export default function ARISMasterOS() {
 
   const lowStockItems = skus.filter(s => (s.stock / s.capacity) < 0.7);
 
-  // File Save + Print to PDF Engine
+  // Direct File Download + Native Print
   const saveInvoiceAsPDF = () => {
     const totalAmount = Object.entries(cart).reduce((acc, [id, qty]) => {
       const item = skus.find(s => s.id === id);
@@ -553,16 +584,15 @@ export default function ARISMasterOS() {
     }
   };
 
-  // --- MATHEMATICAL PIE CHART SLICE GENERATOR (PURE VECTOR SVG - NO IMAGE) ---
+  // --- MATHEMATICAL PIE CHART SLICE GENERATOR (DYNAMIC VECTOR SVG) ---
   const totalSalesRevenue = Object.values(categorySales).reduce((a, b) => a + b, 0);
 
   const renderPieSlices = () => {
     let cumulativeAngle = 0;
     const slices = Object.entries(categorySales).map(([cat, val]) => {
-      const percentage = val / totalSalesRevenue;
+      const percentage = val / Math.max(1, totalSalesRevenue);
       const angle = percentage * 360;
 
-      // Arc coordinates
       const startAngle = cumulativeAngle;
       const endAngle = cumulativeAngle + angle;
       cumulativeAngle = endAngle;
@@ -598,7 +628,7 @@ export default function ARISMasterOS() {
         </div>
       )}
 
-      {/* ================= 1. DIRECT BODY PORTAL HAMBURGER DRAWER ================= */}
+      {/* 1. DIRECT BODY PORTAL HAMBURGER DRAWER */}
       {mounted && menuOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex">
           <div 
@@ -671,7 +701,7 @@ export default function ARISMasterOS() {
         document.body
       )}
 
-      {/* ================= 2. DIRECT BODY PORTAL BARCODE SCANNER ================= */}
+      {/* 2. DIRECT BODY PORTAL BARCODE SCANNER */}
       {mounted && scannerOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div 
@@ -818,7 +848,7 @@ export default function ARISMasterOS() {
               </div>
             </div>
 
-            {/* LIVE QUEUE COUNTERS WITH AUTOMATED LIMIT > 5 ALERT */}
+            {/* LIVE QUEUE COUNTERS */}
             <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex flex-col justify-between space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
@@ -897,7 +927,7 @@ export default function ARISMasterOS() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* ================= REPLACED TABLE WITH DYNAMIC REAL-TIME SALES PIE CHART ================= */}
+            {/* CONTINUOUS LIVE SALES PIE CHART */}
             <div className="lg:col-span-7 bg-[#0f172a] border border-slate-800 p-5 rounded-2xl space-y-4">
               <div className="flex justify-between items-center pb-2 border-b border-slate-800/80">
                 <div>
@@ -908,15 +938,18 @@ export default function ARISMasterOS() {
                   <p className="text-[10px] text-slate-400 mt-0.5">Real-time category telemetry synced with optical checkout register</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] font-mono text-emerald-400 block font-bold">● Telemetry Live</span>
+                  <span className="text-[10px] font-mono text-emerald-400 block font-bold flex items-center gap-1 justify-end">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Telemetry Live
+                  </span>
                   <span className="text-xs font-mono font-black text-white">₹{totalSalesRevenue.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                {/* SVG Pie Chart Canvas (Pure Vector - Zero Image Lag) */}
+                {/* SVG Pie Chart Canvas (Pure Vector) */}
                 <div className="sm:col-span-6 flex justify-center items-center relative">
-                  <svg viewBox="0 0 200 200" className="w-48 h-48 drop-shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                  <svg viewBox="0 0 200 200" className="w-48 h-48 drop-shadow-[0_0_15px_rgba(99,102,241,0.2)] transition-all duration-700">
                     {pieSlices.map((slice, idx) => (
                       <path
                         key={idx}
@@ -924,7 +957,7 @@ export default function ARISMasterOS() {
                         fill={slice.color}
                         stroke="#0f172a"
                         strokeWidth="2.5"
-                        className="transition-all duration-500 hover:opacity-85 cursor-pointer"
+                        className="transition-all duration-700 hover:opacity-85 cursor-pointer"
                       >
                         <title>{`${slice.category}: ₹${slice.value} (${slice.percentage}%)`}</title>
                       </path>
