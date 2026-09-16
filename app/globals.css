@@ -1,56 +1,52 @@
-/* --- Global Theme Setup --- */
 body {
   margin: 0;
-  padding: 20px;
+  padding: 16px;
   background-color: #0d121f;
   color: #f1f5f9;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   box-sizing: border-box;
 }
 
-/* --- Layout & Component Fallbacks for your Tailwind code --- */
-.min-h-screen { min-height: 100vh; }
-.max-w-7xl { max-width: 80rem; margin: 0 auto; }
+/* --- Layout & Grid Fixes for your Dashboard --- */
+.min-h-screen { min-height: 100vh; background-color: #0d121f; }
+.max-w-7xl, div { box-sizing: border-box; }
+
+/* Flexbox utilities */
 .flex { display: flex; }
-.inline-flex { display: inline-flex; }
+.flex-col { flex-direction: column; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
-.space-x-2 > * + * { margin-left: 0.5rem; }
-.space-y-4 > * + * { margin-top: 1rem; }
+.gap-4, .gap-6 { gap: 1.5rem; }
 
-/* Grid systems */
+/* Grid system matching your 4-card top row & 2-column bottom layout */
 .grid { display: grid; }
 .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (min-width: 768px) {
-  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (min-width: 1024px) {
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-/* Card & Box styling matching your dark theme (#161c2d & #1b2236) */
+/* Card Backgrounds (#161c2d) and Borders (#1b2236) matching your original theme */
 .bg-\[\#0d121f\] { background-color: #0d121f; }
 .bg-\[\#161c2d\] { background-color: #161c2d; }
 .bg-\[\#1b2236\] { background-color: #1b2236; }
-.border { border-width: 1px; border-style: solid; }
+.border { border: 1px solid #1b2236; }
 .border-\[\#1b2236\] { border-color: #1b2236; }
 .rounded-xl, .rounded-2xl { border-radius: 1rem; }
 .p-4 { padding: 1rem; }
 .p-6 { padding: 1.5rem; }
-.shadow-lg, .shadow-xl { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4); }
+.shadow-lg, .shadow-xl { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); }
 
-/* Typography & Colors */
+/* Text & Typography */
 .text-white { color: #ffffff; }
-.text-slate-400 { color: #94a3b8; }
-.text-emerald-400 { color: #34d399; }
-.text-rose-400 { color: #fb7185; }
+.text-slate-400, .text-gray-400 { color: #94a3b8; }
 .font-bold { font-weight: 700; }
-.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
-.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
 
-/* Custom Scrollbar */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
