@@ -1,11 +1,77 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 body {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
   background-color: #0d121f;
   color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Custom Card & Grid Layout Helpers */
+.aris-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.aris-nav {
+  background-color: #161c2d;
+  border: 1px solid #1b2236;
+  padding: 14px 20px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  margin-bottom: 16px;
+}
+
+.aris-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aris-card {
+  background-color: #161c2d;
+  border: 1px solid #1b2236;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+.aris-btn-primary {
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.aris-btn-primary:hover {
+  background-color: #4338ca;
+}
+
+.aris-btn-danger {
+  background-color: #e11d48;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0d121f;
+}
+::-webkit-scrollbar-thumb {
+  background: #1b2236;
+  border-radius: 4px;
 }
